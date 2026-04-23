@@ -1,0 +1,1263 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>loopany — factory</title>
+  <style>
+    :root {
+      /* Aligned with tenant-web dark theme (Crewlet).
+         Core principles:
+         - near-black page bg (#0b0b0b), elevated surfaces at #1d1d1d
+         - text as white-alpha steps (87 / 57 / 40)
+         - borders as white-alpha (5% / 10%)
+         - accent is muted cool blue, not saturated yellow
+         - status / relation palette muted but still semantically distinct */
+      --bg: #0b0b0b;
+      --surface: #1d1d1d;
+      --surface-hover: #242424;
+      --fg: rgba(255, 255, 255, 0.87);
+      --muted: rgba(255, 255, 255, 0.57);
+      --muted-3: rgba(255, 255, 255, 0.4);
+      --line: rgba(255, 255, 255, 0.1);
+      --line-soft: rgba(255, 255, 255, 0.05);
+      --accent: #b9d2f3;
+      --accent-s: rgba(138, 174, 228, 0.12);
+      --ok: #6ac14e;
+      --warn: #e5c75a;
+      --err: #e85f4d;
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: var(--bg);
+      color: var(--fg);
+      font-family: ui-monospace, Menlo, monospace;
+      overflow: hidden;
+      height: 100%;
+      width: 100%;
+    }
+    canvas {
+      display: block;
+      image-rendering: pixelated;
+    }
+    #loading, #error {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 12px;
+      background: var(--bg);
+      z-index: 10;
+    }
+    #loading .label, #error .label {
+      font-size: 14px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    #error .msg {
+      color: var(--err);
+      font-size: 12px;
+      max-width: 600px;
+      text-align: center;
+    }
+
+    /* HUD — floating panel at top-center, appears when player is near a building */
+    #hud {
+      position: fixed;
+      top: 60px;
+      left: 50%;
+      transform: translateX(-50%) translateY(-10px);
+      width: min(820px, 84vw);
+      background: rgba(29, 29, 29, 0.94);
+      border: 1px solid var(--line);
+      border-left: 6px solid var(--muted);
+      padding: 20px 28px;
+      font-size: 15px;
+      line-height: 1.55;
+      opacity: 0;
+      pointer-events: none;
+      z-index: 5;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.55);
+      transition: opacity 0.18s, transform 0.18s, border-left-color 0.18s;
+    }
+    #hud.visible {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+    #hud .title {
+      font-size: 22px;
+      font-weight: bold;
+      color: var(--fg);
+      margin-bottom: 12px;
+      line-height: 1.35;
+    }
+    #hud .meta {
+      color: var(--muted);
+      font-size: 13px;
+      margin-bottom: 14px;
+      display: flex;
+      gap: 18px;
+      flex-wrap: wrap;
+    }
+    #hud .meta span b { color: var(--fg); font-weight: 500; }
+    #hud .preview {
+      color: var(--fg);
+      font-size: 14px;
+      white-space: pre-wrap;
+      max-height: 220px;
+      overflow: hidden;
+      border-top: 1px dashed var(--line);
+      padding-top: 12px;
+      margin-bottom: 14px;
+    }
+    #hud .hint {
+      color: var(--accent);
+      font-size: 12px;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+    }
+
+    #hud .edge-mode { display: none; }
+    #hud.mode-edge .edge-mode { display: block; }
+    #hud.mode-edge .node-mode { display: none; }
+    #hud .relation-row {
+      display: flex;
+      align-items: baseline;
+      gap: 14px;
+      margin-bottom: 16px;
+      padding-bottom: 10px;
+      border-bottom: 1px dashed var(--line);
+    }
+    #hud .relation-label {
+      font-size: 26px;
+      font-weight: bold;
+      color: var(--accent);
+      letter-spacing: 1px;
+      text-transform: lowercase;
+    }
+    #hud .relation-flag {
+      font-size: 11px;
+      color: var(--muted);
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+    }
+    #hud .endpoint {
+      padding: 10px 0;
+    }
+    #hud .endpoint-title {
+      font-size: 16px;
+      font-weight: 500;
+      color: var(--fg);
+      line-height: 1.4;
+      margin-bottom: 4px;
+    }
+    #hud .endpoint-meta {
+      color: var(--muted);
+      font-size: 12px;
+      display: flex;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+    #hud .endpoint-meta b { color: var(--fg); font-weight: 500; }
+    #hud .arrow {
+      font-size: 16px;
+      color: var(--muted);
+      text-align: center;
+      margin: 2px 0;
+    }
+
+    /* Info bar (top-left) */
+    #info {
+      position: fixed;
+      top: 12px;
+      left: 12px;
+      background: rgba(29, 29, 29, 0.82);
+      border: 1px solid var(--line);
+      padding: 6px 10px;
+      font-size: 11px;
+      color: var(--muted);
+      z-index: 5;
+    }
+    #info .ws { color: var(--fg); }
+
+    /* Toast */
+    #toast {
+      position: fixed;
+      top: 12px;
+      left: 50%;
+      transform: translateX(-50%) translateY(-120%);
+      background: #242424;
+      border: 1px solid var(--line);
+      padding: 8px 14px;
+      color: var(--fg);
+      font-size: 12px;
+      z-index: 20;
+      transition: transform 0.25s ease-out;
+    }
+    #toast.visible { transform: translateX(-50%) translateY(0); }
+    #toast.err { border-color: var(--err); color: var(--err); }
+  </style>
+</head>
+<body>
+  <div id="loading"><div class="label">Loading factory…</div></div>
+  <div id="error" style="display:none;"><div class="label">Factory failed to boot</div><div class="msg"></div></div>
+
+  <div id="info">
+    <span>loopany · </span><span class="ws"></span>
+    · <span class="counts"></span>
+  </div>
+
+  <div id="hud">
+    <div class="node-mode">
+      <div class="title"></div>
+      <div class="meta"></div>
+      <div class="preview"></div>
+      <div class="hint">[E] open in editor</div>
+    </div>
+    <div class="edge-mode">
+      <div class="relation-row">
+        <span class="relation-label"></span>
+        <span class="relation-flag"></span>
+      </div>
+      <div class="endpoint from">
+        <div class="endpoint-title"></div>
+        <div class="endpoint-meta"></div>
+      </div>
+      <div class="arrow">▼</div>
+      <div class="endpoint to">
+        <div class="endpoint-title"></div>
+        <div class="endpoint-meta"></div>
+      </div>
+    </div>
+  </div>
+
+
+  <div id="toast"></div>
+
+  <script src="https://unpkg.com/kaplay@3001.0.18/dist/kaplay.js"></script>
+  <script src="https://unpkg.com/dagre@0.8.5/dist/dagre.min.js"></script>
+  <script>
+    // ==========================================================
+    // loopany factory — walkable pixel workspace
+    // ==========================================================
+
+    const CARD_W = 200;
+    const CARD_H = 200;
+    const PLAYER_SPEED = 380;
+    const PLAYER_SIZE = 56;
+    const APPROACH_RADIUS = 220;
+
+    // Safety cap for very long titles — card dimensions + wrap do most of the work.
+    const TITLE_CAP = 110;
+
+    // Dagre tuning
+    const DAGRE_NODESEP = 70;
+    const DAGRE_EDGESEP = 30;
+    const DAGRE_RANKSEP = 160;  // vertical headroom for channel stacking
+
+    // Semantic layering order, top → bottom. Edges are oriented so dagre
+    // sees top-down flow, and synthetic edges between adjacent present
+    // kinds guarantee rank separation (signals NEVER share a row with tasks).
+    const KIND_FLOW_RANK = {
+      goal: 0,
+      signal: 1,
+      task: 2,
+      brief: 3,
+      learning: 4,
+      'skill-proposal': 5,
+      person: 6,
+    };
+    const UNKNOWN_KIND_RANK = 50;
+
+    // Domain-region padding around the bounding box of a domain's cards.
+    const DOMAIN_PAD_X = 36;
+    const DOMAIN_PAD_TOP = 56;  // room for the domain label
+    const DOMAIN_PAD_BOT = 28;
+
+    // ─── Palette: kind / status / relation ──────────────────────────
+    // Hex values pulled from the Crewlet Design handoff bundle
+    // (loopany/project/Loopany Factory.html) — specifically the
+    // --k-* / --s-* / --r-* tokens. Hex → RGB ints for Kaplay.
+    const KIND_COLOR = {
+      goal:             [242, 193, 78],    // #F2C14E amber
+      signal:           [126, 200, 255],   // #7EC8FF powder blue
+      task:             [184, 164, 245],   // #B8A4F5 lavender
+      brief:            [245, 192, 138],   // #F5C08A peach
+      learning:         [122, 229, 162],   // #7AE5A2 mint
+      'skill-proposal': [255, 156, 178],   // #FF9CB2 pink
+      person:           [230, 236, 243],   // #E6ECF3 paper
+    };
+    const KIND_COLOR_FALLBACK = [200, 200, 200];
+
+    // Short codes shown at top-right of each card (mirrors the mock).
+    const KIND_TAG = {
+      goal:             'GOAL',
+      signal:           'SIG',
+      task:             'TSK',
+      brief:            'BRF',
+      learning:         'LRN',
+      'skill-proposal': 'SPR',
+      person:           'PRS',
+    };
+
+    // Pixel-art icons, 16×16, color baked per kind. Rendered as Kaplay
+    // sprites loaded from inline data-URIs (no extra HTTP routes).
+    const KIND_ICON_SVG = {
+      goal: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><rect x="2" y="2" width="12" height="12" fill="none" stroke="#F2C14E" stroke-width="1.4" shape-rendering="crispEdges"/><rect x="5" y="5" width="6" height="6" fill="none" stroke="#F2C14E" stroke-width="1.4" shape-rendering="crispEdges"/><rect x="7" y="7" width="2" height="2" fill="#F2C14E" shape-rendering="crispEdges"/></svg>`,
+      signal: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="#7EC8FF" shape-rendering="crispEdges"><rect x="7" y="3" width="2" height="8"/><rect x="4" y="5" width="1" height="1"/><rect x="11" y="5" width="1" height="1"/><rect x="3" y="6" width="1" height="1"/><rect x="12" y="6" width="1" height="1"/><rect x="5" y="4" width="1" height="1"/><rect x="10" y="4" width="1" height="1"/><rect x="6" y="11" width="4" height="1"/></svg>`,
+      task: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><rect x="2" y="3" width="12" height="10" fill="none" stroke="#B8A4F5" stroke-width="1.4" shape-rendering="crispEdges"/><g fill="#B8A4F5" shape-rendering="crispEdges"><rect x="4" y="6" width="3" height="1"/><rect x="4" y="9" width="2" height="1"/><rect x="9" y="6" width="3" height="1"/><rect x="9" y="9" width="3" height="1"/></g></svg>`,
+      brief: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><rect x="3" y="2" width="10" height="12" fill="none" stroke="#F5C08A" stroke-width="1.4" shape-rendering="crispEdges"/><g fill="#F5C08A" shape-rendering="crispEdges"><rect x="5" y="5" width="6" height="1"/><rect x="5" y="8" width="6" height="1"/><rect x="5" y="11" width="4" height="1"/></g></svg>`,
+      learning: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="#7AE5A2" shape-rendering="crispEdges"><rect x="6" y="2" width="4" height="1"/><rect x="5" y="3" width="6" height="1"/><rect x="4" y="4" width="8" height="5"/><rect x="5" y="9" width="6" height="1"/><rect x="6" y="10" width="4" height="2"/><rect x="6" y="13" width="4" height="1"/></svg>`,
+      'skill-proposal': `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="#FF9CB2" shape-rendering="crispEdges"><rect x="4" y="2" width="2" height="2"/><rect x="10" y="2" width="2" height="2"/><rect x="5" y="4" width="2" height="2"/><rect x="9" y="4" width="2" height="2"/><rect x="6" y="6" width="4" height="4"/><rect x="5" y="10" width="2" height="2"/><rect x="9" y="10" width="2" height="2"/><rect x="4" y="12" width="2" height="2"/><rect x="10" y="12" width="2" height="2"/></svg>`,
+      person: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="#E6ECF3" shape-rendering="crispEdges"><rect x="6" y="3" width="4" height="4"/><rect x="4" y="8" width="8" height="5"/></svg>`,
+    };
+
+    // Emoji fallback for HUD (DOM, not Kaplay) — keeps the text side
+    // lightweight without loading <img>s.
+    const KIND_ICON_EMOJI = {
+      goal: '🎯', signal: '📡', task: '⚙', brief: '📄',
+      learning: '💡', 'skill-proposal': '🧬', person: '👤',
+    };
+
+    const STATUS_COLOR = {
+      running:    [245, 184,   0],   // #F5B800
+      todo:       [107, 114, 128],   // #6b7280
+      in_review:  [126, 200, 255],   // #7EC8FF
+      done:       [106, 194,  65],   // #6AC241
+      failed:     [239,  68,  68],   // #EF4444
+      cancelled:  [ 95,  95,  95],
+      pending:    [255, 138,  60],   // #FF8A3C
+      accepted:   [106, 194,  65],
+      rejected:   [168, 105, 100],
+      active:     [106, 194,  65],
+      archived:   [ 95,  95,  95],
+    };
+
+    const RELATION_COLOR = {
+      'caused-by':   [239,  68,  68],   // #EF4444
+      'led-to':      [106, 194,  65],   // #6AC241
+      'cites':       [126, 200, 255],   // #7EC8FF
+      'follows-up':  [255, 138,  60],   // #FF8A3C
+      'mentions':    [ 74,  85, 100],   // #4a5564
+      'supersedes':  [184, 164, 245],   // #B8A4F5
+    };
+
+    // Tag palette mirrors tenant-web's --tg-* colors (growth / eng / db / sup),
+    // extended for more domains. All at ~72% lightness so they read on #0b0b0b.
+    const DOMAIN_PALETTE = [
+      [100, 170, 210],   // tg-growth (blue-teal)
+      [160, 135, 230],   // tg-eng (violet)
+      [138, 174, 228],   // tg-db (cornflower / accent)
+      [175, 145, 110],   // tg-sup (tan)
+      [215, 180, 80],    // warn (amber)
+      [106, 193, 78],    // ok (green)
+    ];
+    const UNZONED_COLOR = [115, 120, 130];
+
+    // ==========================================================
+    // Bootstrap
+    // ==========================================================
+    bootstrap().catch((e) => showError(e.message || String(e)));
+
+    async function bootstrap() {
+      const graph = await fetchGraph();
+      document.getElementById('loading').style.display = 'none';
+
+      populateInfoBar(graph);
+      initGame(graph);
+    }
+
+    async function fetchGraph() {
+      const res = await fetch('/api/graph');
+      if (!res.ok) throw new Error(`GET /api/graph → ${res.status}`);
+      return res.json();
+    }
+
+    function populateInfoBar(graph) {
+      const info = document.getElementById('info');
+      info.querySelector('.ws').textContent = graph.workspace;
+      info.querySelector('.counts').textContent =
+        `${graph.nodes.length} artifacts · ${graph.edges.length} refs · domains: ${graph.enabledDomains.join(', ') || '(none)'}`;
+    }
+
+    function showError(msg) {
+      document.getElementById('loading').style.display = 'none';
+      const err = document.getElementById('error');
+      err.style.display = 'flex';
+      err.querySelector('.msg').textContent = msg;
+    }
+
+    function showToast(msg, isError = false) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.toggle('err', isError);
+      t.classList.add('visible');
+      clearTimeout(t._h);
+      t._h = setTimeout(() => t.classList.remove('visible'), 2400);
+    }
+
+    // ==========================================================
+    // Layout — dagre layered auto-layout, orthogonal elbow edges
+    // ==========================================================
+    //
+    // Dagre computes a hierarchical layout from the edge DAG:
+    //   - assigns each node to a rank (Y-layer)
+    //   - orders within each rank to minimize edge crossings
+    //   - spaces out so orthogonal elbows fit in the rank gap
+    //
+    // We do NOT use graph.lanes anymore — the server still sends it but
+    // dagre derives structure from edges directly.
+    function layout(graph) {
+      const domainColorOf = assignDomainColors(graph.domains);
+      const positions = new Map();
+
+      if (graph.nodes.length === 0) {
+        return { positions, domainColorOf, regions: [], worldW: 1200, worldH: 800 };
+      }
+
+      const g = new dagre.graphlib.Graph({ multigraph: true });
+      g.setGraph({
+        rankdir: 'TB',
+        nodesep: DAGRE_NODESEP,
+        edgesep: DAGRE_EDGESEP,
+        ranksep: DAGRE_RANKSEP,
+        marginx: 140,
+        marginy: 140,
+      });
+      g.setDefaultEdgeLabel(() => ({}));
+
+      const nodeById = new Map(graph.nodes.map((n) => [n.id, n]));
+      const rankOf = (id) => KIND_FLOW_RANK[nodeById.get(id)?.kind] ?? UNKNOWN_KIND_RANK;
+
+      for (const node of graph.nodes) {
+        g.setNode(node.id, { width: CARD_W, height: CARD_H });
+      }
+
+      // Orient real edges so dagre always sees top-down semantic flow.
+      // A real edge like signal → goal (signal mentioning a goal) runs
+      // "upward" in our semantic rank order — we reverse it for layout
+      // purposes so dagre places goal above signal. Rendering still uses
+      // the ORIGINAL edge direction (flow of the packet along the belt).
+      let edgeKey = 0;
+      for (const edge of graph.edges) {
+        const [u, v] = rankOf(edge.from) <= rankOf(edge.to)
+          ? [edge.from, edge.to]
+          : [edge.to, edge.from];
+        g.setEdge(u, v, {}, `e${edgeKey++}`);
+      }
+
+      // Synthetic edges between adjacent present kinds.
+      // `minlen: 1` forces at least one rank of separation — signals and
+      // tasks can NEVER share a row after this. Weight 0 so these edges
+      // don't bias the x-positioning of their endpoints.
+      const byKind = new Map();
+      for (const n of graph.nodes) {
+        if (!byKind.has(n.kind)) byKind.set(n.kind, []);
+        byKind.get(n.kind).push(n);
+      }
+      const presentKinds = Object.keys(KIND_FLOW_RANK).filter((k) => byKind.has(k));
+      for (let i = 0; i < presentKinds.length - 1; i++) {
+        const high = byKind.get(presentKinds[i])[0];
+        const low = byKind.get(presentKinds[i + 1])[0];
+        g.setEdge(high.id, low.id, { minlen: 1, weight: 0 }, `_synth_${i}`);
+      }
+
+      dagre.layout(g);
+
+      // Border = kind color (semantic). Domain is conveyed by the region
+      // block behind the cards, not their individual borders.
+      for (const node of graph.nodes) {
+        const n = g.node(node.id);
+        if (!n) continue;
+        positions.set(node.id, {
+          x: n.x - CARD_W / 2,
+          y: n.y - CARD_H / 2,
+          borderColor: KIND_COLOR[node.kind] ?? KIND_COLOR_FALLBACK,
+        });
+      }
+
+      const regions = computeDomainRegions(graph, positions, domainColorOf);
+
+      const info = g.graph();
+      return {
+        positions,
+        domainColorOf,
+        regions,
+        worldW: (info.width || 1200) + 280,
+        worldH: (info.height || 800) + 280,
+      };
+    }
+
+    // Axis-aligned bounding box of every domain's cards, padded for a
+    // label strip at the top. Cards from multiple domains can overlap
+    // the same region — we draw translucent fills so overlaps just tint.
+    function computeDomainRegions(graph, positions, domainColorOf) {
+      const byDomain = new Map();
+      for (const node of graph.nodes) {
+        if (!node.domain) continue;
+        const p = positions.get(node.id);
+        if (!p) continue;
+        let list = byDomain.get(node.domain);
+        if (!list) { list = []; byDomain.set(node.domain, list); }
+        list.push(p);
+      }
+      const regions = [];
+      for (const [domain, pts] of byDomain) {
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        for (const p of pts) {
+          if (p.x < minX) minX = p.x;
+          if (p.y < minY) minY = p.y;
+          if (p.x + CARD_W > maxX) maxX = p.x + CARD_W;
+          if (p.y + CARD_H > maxY) maxY = p.y + CARD_H;
+        }
+        regions.push({
+          domain,
+          color: domainColorOf.get(domain) ?? UNZONED_COLOR,
+          x: minX - DOMAIN_PAD_X,
+          y: minY - DOMAIN_PAD_TOP,
+          width: (maxX - minX) + DOMAIN_PAD_X * 2,
+          height: (maxY - minY) + DOMAIN_PAD_TOP + DOMAIN_PAD_BOT,
+        });
+      }
+      // Larger regions first so smaller regions layer on top and stay visible.
+      regions.sort((a, b) => (b.width * b.height) - (a.width * a.height));
+      return regions;
+    }
+
+    // ==========================================================
+    // Orthogonal edge routing with channel assignment
+    // ==========================================================
+    //
+    // Strategy:
+    //
+    //   1. Port distribution
+    //      Each card's outgoing edges are spread across its source edge
+    //      (top or bottom, depending on direction) at evenly-spaced ports.
+    //      Same for incoming edges on the target card. Ports are sorted
+    //      by the other endpoint's x to keep adjacent edges parallel.
+    //
+    //   2. Channel assignment
+    //      For each rank-gap (a pair of y-levels with at least one edge
+    //      crossing it), every edge is given a unique horizontal "channel"
+    //      at a distinct y inside the gap. The horizontal leg of each
+    //      edge's orthogonal path sits on its channel, so no two
+    //      horizontals share a y-line.
+    //
+    // Same-rank fallback (edges between cards at the same y) uses a
+    // midX side-elbow — rare with dagre TB layout.
+    function routeAllEdges(graph, positions) {
+      const edges = graph.edges.filter(
+        (e) => positions.has(e.from) && positions.has(e.to),
+      );
+
+      // Phase 1: port distribution --------------------------------------------
+      const outByNode = new Map(); // nodeId → edges leaving
+      const inByNode = new Map();
+      for (const e of edges) {
+        (outByNode.get(e.from) ?? outByNode.set(e.from, []).get(e.from)).push(e);
+        (inByNode.get(e.to) ?? inByNode.set(e.to, []).get(e.to)).push(e);
+      }
+
+      const exitPort = new Map(); // edge → {x, y}
+      const entryPort = new Map();
+
+      for (const [nodeId, outs] of outByNode) {
+        const pos = positions.get(nodeId);
+        const down = [], up = [], side = [];
+        for (const e of outs) {
+          const other = positions.get(e.to);
+          if (other.y > pos.y + 2) down.push(e);
+          else if (other.y < pos.y - 2) up.push(e);
+          else side.push(e);
+        }
+        down.sort((a, b) => positions.get(a.to).x - positions.get(b.to).x);
+        up.sort((a, b) => positions.get(a.to).x - positions.get(b.to).x);
+        distributePorts(down, pos, 'bottom', exitPort);
+        distributePorts(up, pos, 'top', exitPort);
+        // Side-emerging edges: we let the same-rank branch decide, skip port.
+        for (const e of side) exitPort.set(e, null);
+      }
+
+      for (const [nodeId, ins] of inByNode) {
+        const pos = positions.get(nodeId);
+        const fromAbove = [], fromBelow = [], side = [];
+        for (const e of ins) {
+          const other = positions.get(e.from);
+          if (other.y < pos.y - 2) fromAbove.push(e);
+          else if (other.y > pos.y + 2) fromBelow.push(e);
+          else side.push(e);
+        }
+        fromAbove.sort((a, b) => positions.get(a.from).x - positions.get(b.from).x);
+        fromBelow.sort((a, b) => positions.get(a.from).x - positions.get(b.from).x);
+        distributePorts(fromAbove, pos, 'top', entryPort);
+        distributePorts(fromBelow, pos, 'bottom', entryPort);
+        for (const e of side) entryPort.set(e, null);
+      }
+
+      // Phase 2: channel assignment per rank-gap ------------------------------
+      const gapGroups = new Map();
+      for (const e of edges) {
+        const a = positions.get(e.from);
+        const b = positions.get(e.to);
+        if (Math.abs(a.y - b.y) < 10) continue;
+        const [yTop, yBot] = a.y < b.y ? [a.y, b.y] : [b.y, a.y];
+        const key = `${Math.round(yTop)}-${Math.round(yBot)}`;
+        let list = gapGroups.get(key);
+        if (!list) { list = []; gapGroups.set(key, list); }
+        list.push(e);
+      }
+
+      const channelY = new Map();
+      for (const [key, list] of gapGroups) {
+        const [yTop, yBot] = key.split('-').map(Number);
+        const gapTop = yTop + CARD_H;
+        const gapSpan = yBot - gapTop;
+        // Order by midpoint-x so neighbouring edges sit on adjacent channels.
+        list.sort((ea, eb) => {
+          const pea = exitPort.get(ea), pen = entryPort.get(ea);
+          const peb = exitPort.get(eb), peb2 = entryPort.get(eb);
+          const midA = ((pea?.x ?? 0) + (pen?.x ?? 0)) / 2;
+          const midB = ((peb?.x ?? 0) + (peb2?.x ?? 0)) / 2;
+          return midA - midB;
+        });
+        const n = list.length;
+        list.forEach((e, i) => {
+          channelY.set(e, gapTop + (gapSpan * (i + 1)) / (n + 1));
+        });
+      }
+
+      // Phase 3: build paths ---------------------------------------------------
+      const paths = new Map();
+      for (const e of edges) {
+        const a = positions.get(e.from);
+        const b = positions.get(e.to);
+        const p1 = exitPort.get(e);
+        const p4 = entryPort.get(e);
+        const ch = channelY.get(e);
+
+        if (p1 && p4 && ch != null) {
+          paths.set(e, [p1, { x: p1.x, y: ch }, { x: p4.x, y: ch }, p4]);
+        } else {
+          // Same-rank side elbow (no gap available)
+          paths.set(e, buildSideElbow(a, b));
+        }
+      }
+
+      return { paths };
+    }
+
+    function distributePorts(edges, nodePos, edgeSide, outMap) {
+      const y = edgeSide === 'top' ? nodePos.y : nodePos.y + CARD_H;
+      const n = edges.length;
+      edges.forEach((e, i) => {
+        outMap.set(e, {
+          x: nodePos.x + (CARD_W * (i + 1)) / (n + 1),
+          y,
+        });
+      });
+    }
+
+    function buildSideElbow(from, to) {
+      const fromCy = from.y + CARD_H / 2;
+      const toCy = to.y + CARD_H / 2;
+      const leftToRight = from.x < to.x;
+      const p1 = { x: leftToRight ? from.x + CARD_W : from.x, y: fromCy };
+      const p4 = { x: leftToRight ? to.x : to.x + CARD_W, y: toCy };
+      const midX = (p1.x + p4.x) / 2;
+      return [p1, { x: midX, y: p1.y }, { x: midX, y: p4.y }, p4];
+    }
+
+
+    function pointAlongPath(path, t) {
+      let total = 0;
+      const segs = [];
+      for (let i = 0; i < path.length - 1; i++) {
+        const dx = path[i + 1].x - path[i].x;
+        const dy = path[i + 1].y - path[i].y;
+        const len = Math.sqrt(dx * dx + dy * dy);
+        segs.push({ from: path[i], to: path[i + 1], len });
+        total += len;
+      }
+      let target = t * total;
+      for (const seg of segs) {
+        if (target <= seg.len || seg === segs[segs.length - 1]) {
+          const r = seg.len ? target / seg.len : 0;
+          return {
+            x: seg.from.x + (seg.to.x - seg.from.x) * r,
+            y: seg.from.y + (seg.to.y - seg.from.y) * r,
+          };
+        }
+        target -= seg.len;
+      }
+      return path[path.length - 1];
+    }
+
+    function assignDomainColors(domains) {
+      const map = new Map();
+      domains.forEach((d, i) => {
+        map.set(d, DOMAIN_PALETTE[i % DOMAIN_PALETTE.length]);
+      });
+      return map;
+    }
+
+    // ==========================================================
+    // Game
+    // ==========================================================
+    function initGame(graph) {
+      const layoutData = layout(graph);
+      const { positions, worldW, worldH, regions } = layoutData;
+      const world = { w: worldW, h: worldH };
+
+      const k = kaplay({
+        background: [11, 11, 11],
+        width: window.innerWidth,
+        height: window.innerHeight,
+        letterbox: true,
+        crisp: true,
+        global: true,
+        touchToMouse: true,
+      });
+      setGravity(0);
+
+      // Load the Crewlet avatar for the player.
+      loadSprite('crewlet', '/assets/crewlet.svg');
+
+      // Load kind icons from inline SVG data-URIs (baked color per kind).
+      for (const [kind, svg] of Object.entries(KIND_ICON_SVG)) {
+        const uri = 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
+        loadSprite('kind-' + kind, uri);
+      }
+
+      // --- domain region layer — far behind everything (z -5) ---
+      // Each domain becomes a rounded, translucent territory behind its
+      // cards. Overlapping regions tint together.
+      add([
+        z(-5),
+        {
+          draw() {
+            for (const r of regions) {
+              // Pixel-style territory: hard corners, no radius.
+              // Filled body (subtle tint).
+              drawRect({
+                pos: vec2(r.x, r.y),
+                width: r.width,
+                height: r.height,
+                color: rgb(...r.color),
+                opacity: 0.08,
+              });
+              // Outline — crisp 2px border at higher opacity.
+              drawRect({
+                pos: vec2(r.x, r.y),
+                width: r.width,
+                height: r.height,
+                fill: false,
+                outline: { width: 2, color: rgb(...r.color) },
+                opacity: 0.4,
+              });
+              drawText({
+                text: plain(r.domain.toUpperCase()),
+                pos: vec2(r.x + 22, r.y + 16),
+                size: 24,
+                color: rgb(...r.color),
+                opacity: 0.8,
+                font: 'monospace',
+              });
+            }
+          },
+        },
+      ]);
+
+      // --- edge layer — drawn BEHIND cards (z -1) ---
+      const { paths: edgePaths } = routeAllEdges(graph, positions);
+
+      add([
+        z(-1),
+        {
+          draw() {
+            // Belts
+            for (const edge of graph.edges) {
+              const path = edgePaths.get(edge);
+              if (!path) continue;
+              const col = rgb(...(RELATION_COLOR[edge.relation] ?? RELATION_COLOR.mentions));
+              const isSel = selected === edge;
+              const baseWidth = edge.implicit ? 3 : 5;
+
+              // Selected edge: soft white glow behind the colored line
+              if (isSel) {
+                for (let i = 0; i < path.length - 1; i++) {
+                  drawLine({
+                    p1: vec2(path[i].x, path[i].y),
+                    p2: vec2(path[i + 1].x, path[i + 1].y),
+                    width: baseWidth + 8,
+                    color: rgb(255, 255, 255),
+                    opacity: 0.35,
+                  });
+                }
+              }
+
+              for (let i = 0; i < path.length - 1; i++) {
+                drawLine({
+                  p1: vec2(path[i].x, path[i].y),
+                  p2: vec2(path[i + 1].x, path[i + 1].y),
+                  width: baseWidth,
+                  color: col,
+                  opacity: isSel ? 1 : (edge.implicit ? 0.45 : 0.9),
+                });
+              }
+
+              // moving packet along the polyline — enlarged when selected
+              const phase = (time() * 0.28 + hashEdge(edge)) % 1;
+              const pt = pointAlongPath(path, phase);
+              const pS = isSel ? 12 : 8;
+              drawRect({
+                pos: vec2(pt.x - pS / 2, pt.y - pS / 2),
+                width: pS,
+                height: pS,
+                color: col,
+              });
+            }
+
+          },
+        },
+      ]);
+
+      // --- buildings ---
+      const buildingsById = new Map();
+      for (const node of graph.nodes) {
+        const p = positions.get(node.id);
+        if (!p) continue;
+
+        const stColor = STATUS_COLOR[node.status] ?? [74, 86, 99];
+        const borderColor = p.borderColor ?? KIND_COLOR_FALLBACK;
+        const kindColor = KIND_COLOR[node.kind] ?? KIND_COLOR_FALLBACK;
+        const tag = KIND_TAG[node.kind] ?? node.kind.toUpperCase().slice(0, 4);
+        const innerW = CARD_W - 24;
+
+        // main body — area() for clicks, no body() so player walks through.
+        // Opaque surface color (#1d1d1d from tenant-web) so edges at z(-1)
+        // are occluded cleanly.
+        const b = add([
+          rect(CARD_W, CARD_H),
+          pos(p.x, p.y),
+          color(29, 29, 29),
+          outline(3, rgb(...borderColor)),
+          area(),
+          z(5),
+          'building',
+          { node, hoverT: 0 },
+        ]);
+
+        // Header row: icon (20×20) + id (truncated) + kind tag.
+        // All vertically centered on the same y-line for clean alignment.
+        const HEADER_Y = 14;     // icon top
+        const TEXT_Y   = 19;     // visual center of size-11 text aligns w/ icon center
+        const TITLE_Y  = 48;     // 15px gap after the 20px icon
+
+        if (KIND_ICON_SVG[node.kind]) {
+          add([
+            sprite('kind-' + node.kind, { width: 20, height: 20 }),
+            pos(p.x + 14, p.y + HEADER_Y),
+            z(7),
+          ]);
+        }
+
+        // Truncate id so it can't overlap the kind tag on the right.
+        // Cards are 200px wide; after icon (20) + tag (~36) + padding, the
+        // id column is roughly 110px — ~14 chars of 11px monospace.
+        const idMaxChars = 14;
+        const idText = node.id.length > idMaxChars
+          ? node.id.slice(0, idMaxChars - 1) + '…'
+          : node.id;
+
+        add([
+          text(plain(idText), { size: 11, font: 'monospace' }),
+          pos(p.x + 40, p.y + TEXT_Y),
+          color(145, 145, 145),
+          z(7),
+        ]);
+
+        add([
+          text(plain(tag), { size: 11, font: 'monospace' }),
+          pos(p.x + CARD_W - 14, p.y + TEXT_Y),
+          anchor('topright'),
+          color(...kindColor),
+          z(7),
+        ]);
+
+        // Title — the only real content; wrapped inside the card.
+        // NB: plain() swaps `[` / `]` to full-width forms — Kaplay's styled
+        // text parser treats `[x]` as a tag and throws on unclosed ones,
+        // which would trip on titles like "[backfill change] …".
+        add([
+          text(plain(truncate(node.title, TITLE_CAP)), {
+            size: 14,
+            font: 'monospace',
+            width: innerW,
+            lineSpacing: 3,
+          }),
+          pos(p.x + 14, p.y + TITLE_Y),
+          color(222, 222, 222), // primary text (≈ t1)
+          z(7),
+        ]);
+
+        // Status bar — thin strip along the bottom edge. Pure visual signal.
+        add([
+          rect(CARD_W - 20, 4),
+          pos(p.x + 10, p.y + CARD_H - 10),
+          color(...stColor),
+          z(6),
+        ]);
+
+        buildingsById.set(node.id, b);
+      }
+
+
+      // --- player ---
+      // No body() — the player passes through buildings. Movement is a
+      // manual per-frame velocity integration so we get normalized
+      // diagonals without needing the physics system.
+      const spawn = chooseSpawn(graph, positions, world);
+      const player = add([
+        sprite('crewlet', { width: PLAYER_SIZE, height: PLAYER_SIZE }),
+        pos(spawn.x, spawn.y),
+        anchor('center'),
+        z(10),
+        'player',
+      ]);
+
+      // Camera state. `following` means the camera tracks the player; it
+      // auto-disengages the moment the user pans with trackpad/wheel, and
+      // re-engages when they press `C`.
+      const cam = {
+        scale: 1,
+        tx: spawn.x,
+        ty: spawn.y,
+        following: true,
+      };
+      const CAM_SCALE_MIN = 0.3;
+      const CAM_SCALE_MAX = 3;
+      setCamScale(cam.scale);
+
+      onUpdate(() => {
+        let vx = 0, vy = 0;
+        if (isKeyDown('w') || isKeyDown('up')) vy -= 1;
+        if (isKeyDown('s') || isKeyDown('down')) vy += 1;
+        if (isKeyDown('a') || isKeyDown('left')) vx -= 1;
+        if (isKeyDown('d') || isKeyDown('right')) vx += 1;
+        if (vx !== 0 || vy !== 0) {
+          const mag = Math.sqrt(vx * vx + vy * vy);
+          player.pos.x += (vx / mag) * PLAYER_SPEED * dt();
+          player.pos.y += (vy / mag) * PLAYER_SPEED * dt();
+        }
+        // soft clamp to world
+        player.pos.x = clamp(player.pos.x, -200, world.w + 200);
+        player.pos.y = clamp(player.pos.y, -200, world.h + 200);
+
+        if (cam.following) {
+          cam.tx = player.pos.x;
+          cam.ty = player.pos.y;
+        }
+        setCamPos(cam.tx, cam.ty);
+      });
+
+      // Trackpad + mouse wheel handling ------------------------------------
+      // Mac trackpad pinch → `wheel` event with `ctrlKey === true`.
+      // Two-finger scroll → wheel with deltaX/deltaY, no ctrlKey.
+      // Desktop mouse wheel → just deltaY; we zoom when modifier held.
+      const canvas = document.querySelector('canvas');
+      if (canvas) {
+        canvas.addEventListener('wheel', (e) => {
+          e.preventDefault();
+          if (e.ctrlKey || e.metaKey) {
+            const factor = Math.exp(-e.deltaY * 0.01);
+            cam.scale = clamp(cam.scale * factor, CAM_SCALE_MIN, CAM_SCALE_MAX);
+            setCamScale(cam.scale);
+          } else {
+            cam.following = false;
+            cam.tx += e.deltaX / cam.scale;
+            cam.ty += e.deltaY / cam.scale;
+          }
+        }, { passive: false });
+      }
+
+      onKeyPress(['=', '+'], () => {
+        cam.scale = clamp(cam.scale * 1.15, CAM_SCALE_MIN, CAM_SCALE_MAX);
+        setCamScale(cam.scale);
+      });
+      onKeyPress('-', () => {
+        cam.scale = clamp(cam.scale / 1.15, CAM_SCALE_MIN, CAM_SCALE_MAX);
+        setCamScale(cam.scale);
+      });
+      onKeyPress('0', () => {
+        cam.scale = 1;
+        setCamScale(cam.scale);
+      });
+      onKeyPress('c', () => {
+        cam.following = true;
+        cam.tx = player.pos.x;
+        cam.ty = player.pos.y;
+      });
+
+      // --- approach / focus / edge-hover / selection ---
+      // HUD priority: mouse-hovered belt > explicitly selected > player-proximity.
+      // Click on a card = select (not open). E opens the selected one,
+      // or the player-focused one if nothing's selected.
+      let focused = null;       // building entity near player
+      let selected = null;      // explicitly-clicked building (persistent)
+      let hoveredEdge = null;   // edge under the cursor
+      const hud = document.getElementById('hud');
+      const nodeById = new Map(graph.nodes.map((n) => [n.id, n]));
+
+      onUpdate(() => {
+        // Player-proximity building
+        let best = null;
+        let bestDist = APPROACH_RADIUS;
+        for (const b of get('building')) {
+          const cx = b.pos.x + CARD_W / 2;
+          const cy = b.pos.y + CARD_H / 2;
+          const dx = cx - player.pos.x;
+          const dy = cy - player.pos.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < bestDist) {
+            best = b;
+            bestDist = dist;
+          }
+        }
+        for (const b of get('building')) {
+          if (b === best) b.hoverT = Math.min(1, b.hoverT + dt() * 6);
+          else b.hoverT = Math.max(0, b.hoverT - dt() * 4);
+        }
+        focused = best;
+
+        // Mouse-hovered edge — convert to world space in case of camera offset.
+        const mw = toWorld ? toWorld(mousePos()) : mousePos();
+        hoveredEdge = findHoveredEdge(mw, graph.edges, edgePaths, 10);
+
+        // Render priority: mouse-hovered edge > selection > player-focused > none.
+        // `selected` may be either a building entity (has `.node`) or an
+        // edge object (has `.from`/`.to`/`.relation`).
+        if (hoveredEdge) {
+          renderEdgeHud(hoveredEdge);
+          hud.classList.add('visible');
+          hud.classList.add('mode-edge');
+        } else if (selected && isEdgeSelection(selected)) {
+          renderEdgeHud(selected);
+          hud.classList.add('visible');
+          hud.classList.add('mode-edge');
+        } else if (selected) {
+          renderBuildingHud(selected.node);
+          hud.classList.add('visible');
+          hud.classList.remove('mode-edge');
+        } else if (focused) {
+          renderBuildingHud(focused.node);
+          hud.classList.add('visible');
+          hud.classList.remove('mode-edge');
+        } else {
+          hud.classList.remove('visible');
+          hud.classList.remove('mode-edge');
+        }
+      });
+
+      // Click = select. Hit-test buildings first (they're solid), fall
+      // through to edges if no card is under the cursor. Empty-space
+      // click clears the selection.
+      onMousePress('left', () => {
+        const m = toWorld ? toWorld(mousePos()) : mousePos();
+        for (const b of get('building')) {
+          if (
+            m.x >= b.pos.x && m.x <= b.pos.x + CARD_W &&
+            m.y >= b.pos.y && m.y <= b.pos.y + CARD_H
+          ) {
+            selected = b;
+            return;
+          }
+        }
+        const hitEdge = findHoveredEdge(m, graph.edges, edgePaths, 10);
+        selected = hitEdge; // edge or null
+      });
+
+      onKeyPress('escape', () => { selected = null; });
+
+      function renderBuildingHud(node) {
+        updateHud(node);
+      }
+
+      function renderEdgeHud(edge) {
+        const fromNode = nodeById.get(edge.from);
+        const toNode = nodeById.get(edge.to);
+        if (!fromNode || !toNode) return;
+
+        const col = RELATION_COLOR[edge.relation] ?? RELATION_COLOR.mentions;
+        hud.style.borderLeftColor = cssColor(col);
+
+        hud.querySelector('.relation-label').textContent = edge.relation;
+        hud.querySelector('.relation-flag').textContent = edge.implicit
+          ? 'implicit · from frontmatter'
+          : 'explicit · references.jsonl';
+
+        for (const [sel, node] of [['.endpoint.from', fromNode], ['.endpoint.to', toNode]]) {
+          const el = hud.querySelector(sel);
+          const icon = KIND_ICON_EMOJI[node.kind] ?? '◆';
+          el.querySelector('.endpoint-title').textContent = `${icon}  ${node.title}`;
+          el.querySelector('.endpoint-meta').innerHTML = `
+            <span>${node.id}</span>
+            <span>kind: <b>${node.kind}</b></span>
+            ${node.status ? `<span>status: <b>${node.status}</b></span>` : ''}
+            ${node.domain ? `<span>domain: <b>${node.domain}</b></span>` : ''}
+          `;
+        }
+      }
+
+      // Selection outline (solid cyan) + proximity pulse (animated amber)
+      onDraw(() => {
+        for (const b of get('building')) {
+          if (b === selected) {
+            drawRect({
+              pos: vec2(b.pos.x - 6, b.pos.y - 6),
+              width: CARD_W + 12,
+              height: CARD_H + 12,
+              fill: false,
+              outline: { width: 4, color: rgb(240, 240, 240) }, // near-white (tg)
+            });
+          }
+          if (b.hoverT > 0) {
+            const alpha = 0.3 + 0.4 * b.hoverT * (0.7 + 0.3 * Math.sin(time() * 6));
+            drawRect({
+              pos: vec2(b.pos.x - 2, b.pos.y - 2),
+              width: CARD_W + 4,
+              height: CARD_H + 4,
+              fill: false,
+              outline: { width: 4, color: rgb(185, 210, 243) }, // accent-h blue
+              opacity: alpha,
+            });
+          }
+        }
+      });
+
+      // Open editor — selected BUILDING wins over player-proximity.
+      // Selected edges aren't openable (they're not files) — fall through
+      // to the player-focused building if any.
+      onKeyPress(['e', 'space', 'enter'], () => {
+        const target = (selected && !isEdgeSelection(selected)) ? selected : focused;
+        if (target) openNode(target.node);
+      });
+
+      // Reload
+      onKeyPress('r', () => window.location.reload());
+    }
+
+    function chooseSpawn(graph, positions, world) {
+      // Prefer the most recently updated artifact that has a position.
+      const sorted = [...graph.nodes]
+        .filter((n) => positions.has(n.id))
+        .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+      if (sorted.length) {
+        const p = positions.get(sorted[0].id);
+        return { x: p.x + CARD_W / 2, y: p.y + CARD_H + 40 };
+      }
+      return { x: world.w / 2, y: world.h / 2 };
+    }
+
+    function updateHud(node) {
+      const hud = document.getElementById('hud');
+      hud.querySelector('.title').textContent = `${KIND_ICON_EMOJI[node.kind] ?? '◆'}  ${node.title}`;
+      hud.querySelector('.meta').innerHTML = `
+        <span>${node.id}</span>
+        <span>kind: <b>${node.kind}</b></span>
+        ${node.status ? `<span>status: <b>${node.status}</b></span>` : ''}
+        ${node.domain ? `<span>domain: <b>${node.domain}</b></span>` : ''}
+      `;
+      hud.querySelector('.preview').textContent = node.preview || '(empty body)';
+      hud.style.borderLeftColor = cssColor(STATUS_COLOR[node.status] ?? [122, 138, 153]);
+    }
+
+    async function openNode(node) {
+      try {
+        const res = await fetch('/api/open', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ id: node.id }),
+        });
+        const data = await res.json();
+        if (data.ok) showToast(`opened ${node.id} · ${data.editor}`);
+        else showToast(`failed: ${data.error || 'unknown'}`, true);
+      } catch (e) {
+        showToast(`error: ${e.message}`, true);
+      }
+    }
+
+    // ==========================================================
+    // Helpers
+    // ==========================================================
+    function truncate(s, n) {
+      if (!s) return '';
+      return s.length > n ? s.slice(0, n - 1) + '…' : s;
+    }
+
+    // Kaplay styled-text reserves `[...]` as tags; unclosed brackets throw.
+    // Replace them with visually close alternatives before drawing.
+    function plain(s) {
+      if (s == null) return '';
+      return String(s).replace(/\[/g, '〔').replace(/\]/g, '〕');
+    }
+
+    function hashEdge(edge) {
+      let h = 0;
+      const s = `${edge.from}|${edge.to}|${edge.relation}`;
+      for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
+      return Math.abs(h) / 2147483647;
+    }
+
+    function cssColor(rgbArr) {
+      return `rgb(${rgbArr[0]}, ${rgbArr[1]}, ${rgbArr[2]})`;
+    }
+
+    function clamp(v, lo, hi) {
+      return Math.max(lo, Math.min(hi, v));
+    }
+
+    // Distance from a 2-D point to a line segment [a, b]. Clamped to segment.
+    function distPointToSegment(p, a, b) {
+      const dx = b.x - a.x;
+      const dy = b.y - a.y;
+      const len2 = dx * dx + dy * dy;
+      if (len2 === 0) return Math.hypot(p.x - a.x, p.y - a.y);
+      let t = ((p.x - a.x) * dx + (p.y - a.y) * dy) / len2;
+      t = Math.max(0, Math.min(1, t));
+      const cx = a.x + t * dx;
+      const cy = a.y + t * dy;
+      return Math.hypot(p.x - cx, p.y - cy);
+    }
+
+    // The `selected` state can be either a building entity or an edge.
+    // Edges don't have `.node`; buildings do. Discriminate on `.from`.
+    function isEdgeSelection(x) {
+      return x != null && typeof x === 'object' && 'from' in x && 'to' in x;
+    }
+
+    // Return the edge nearest to mouseWorldPos within `threshold` pixels,
+    // or null. Ties broken by shortest distance.
+    function findHoveredEdge(mouseWorldPos, edges, paths, threshold) {
+      let best = null;
+      let minDist = threshold;
+      for (const edge of edges) {
+        const path = paths.get(edge);
+        if (!path) continue;
+        for (let i = 0; i < path.length - 1; i++) {
+          const d = distPointToSegment(mouseWorldPos, path[i], path[i + 1]);
+          if (d < minDist) {
+            minDist = d;
+            best = edge;
+          }
+        }
+      }
+      return best;
+    }
+  </script>
+</body>
+</html>
