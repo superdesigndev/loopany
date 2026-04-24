@@ -133,7 +133,7 @@ kind: task
 idPrefix: tsk-
 bodyMode: append
 storage: date-bucketed
-indexedFields: [status, priority, scheduled_for, domain]
+indexedFields: [status, priority, check_at, domain]
 ---
 
 ## Frontmatter

@@ -107,7 +107,7 @@ loopany artifact create --kind signal \
   --summary "<one-line observable>" \
   --source <cost|architecture|observability|user-feedback> \
   --domain <domain> \
-  --mentions "<goal-id>,prs-self,<optional-entity-ids>" \
+  --mentions "<entity-ids>" \   # optional — only entities materially involved
   --content "$(cat <<'EOF'
 Observed <when/where>. <mechanism in 1-2 sentences>.
 
@@ -153,7 +153,6 @@ loopany artifact create --kind task \
   --title "[change] add upload_video tool to meta-ads plugin" \
   --status todo \
   --priority high \
-  --mentions "<goal-id>,prs-self" \
   --content "..."
 
 # Link: task addresses the signal (stronger than led-to)

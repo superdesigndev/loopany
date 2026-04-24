@@ -4,7 +4,7 @@ idPrefix: tsk-
 bodyMode: append
 storage: date-bucketed
 idStrategy: timestamp
-indexedFields: [status, priority, scheduled_for, check_at]
+indexedFields: [status, priority, check_at]
 ---
 
 # task
@@ -20,7 +20,6 @@ reads from.
 title:         { type: string, required: true }
 status:        { type: enum, values: [todo, running, in_review, done, failed, cancelled] }
 priority:      { type: enum, values: [low, medium, high, critical], default: medium }
-scheduled_for: { type: date, required: false }
 check_at:      { type: date, required: false }   # `loopany followups` reads this
 mentions:      { type: 'string[]', required: false }
 ```

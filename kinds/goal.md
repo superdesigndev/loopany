@@ -35,6 +35,16 @@ transitions:
   superseded: [archived]
 ```
 
+## On being `mentions`ed
+
+A goal does not expect routine mentions. `mentions: <this-goal-id>` is
+a claim that the artifact materially advances, tests, or provides
+evidence for the goal — not that the artifact happens in the same
+workstream (that's what `domain` is for).
+
+If every artifact in the workspace mentions the goal, the edge has
+lost signal. Default is not to mention.
+
 ## Body conventions (not enforced, write them anyway)
 
 ```

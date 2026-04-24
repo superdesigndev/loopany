@@ -22,6 +22,13 @@ These apply to **every** artifact you create or modify:
 
 ## On-demand skills — match by trigger
 
+### Proactive capture — after substantive work concludes
+
+| Trigger | Read |
+|---|---|
+| Main session notices work just ended (PR shipped, incident resolved, decision made, signal noticed, outcome observed) — before dispatching | `skills/capture-on-complete.md` (quality bar + subagent context) |
+| Subagent dispatched with "record this via loopany" | `skills/capture-on-complete.md` (routing), then the form skill it names |
+
 ### Creating / handling artifacts
 
 | Trigger (user said or agent decided) | Read |

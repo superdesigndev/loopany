@@ -62,118 +62,163 @@ After init, `~/loopany/` looks like:
 
 ## Step 3 — Onboard the user (DO NOT SKIP)
 
-Before recording any artifacts, run the onboarding conversation.
+Read `ONBOARDING.md` and run the conversation. A loopany brain without
+an active `goal` is a filing cabinet, not a brain. `loopany init` itself
+reminds you with a "NEXT — read ONBOARDING.md" line; honor it.
 
-A loopany brain without a goal is a filing cabinet, not a brain. The
-goal is what gives every later artifact meaning — without it you don't
-know whether what you're recording matters.
-
-```bash
-# After init, the agent reads ONBOARDING.md and runs the conversation:
-cat ONBOARDING.md          # the script
-```
-
-Outcome of onboarding (two artifacts created via `loopany artifact create`):
-
-1. **`prs-self`** — `person` artifact for the user. Frontmatter holds
-   stable identity; body holds current role + stakeholders.
-2. **`gol-<slug>`** — `goal` artifact (`status: active`) capturing what the
-   brain is for. One-sentence title + why-it-matters body.
-
-Optional: 2–4 stakeholder `person` artifacts for people named in onboarding.
-
-There is **no `profile.md` and no `goals.md`** — both pieces are first-class
-artifacts.
-
-**Do not proceed past this step on a fresh workspace.** `loopany init`
-itself reminds you with a "NEXT — read ONBOARDING.md" line; honor it.
-
-If any `goal` artifact exists in `~/loopany/artifacts/goals/`, onboarding has
-been run — skip to Step 5.
+If any `goal` artifact already exists in `~/loopany/artifacts/goals/`,
+onboarding has been run — skip to Step 5.
 
 ## Step 4 — Load the skill resolver
 
 loopany ships a **skill library** at `~/loopany-src/skills/`. Skills are
-markdown files — judgment and process knowledge, not code. The runtime
-knows nothing about them; **you (the agent) read them on demand**.
+markdown — judgment and process knowledge, not code. The runtime knows
+nothing about them; **you (the agent) read them on demand**.
 
 The entry point is `skills/RESOLVER.md`. It maps triggers (user phrases
 or agent decisions) to the skill file you must read before acting.
 
-### Install the resolver into your agent's context
+Step 4 implants **two things** into the agent's persistent context, in
+the same injection: (a) where the resolver lives, and (b) when to
+proactively invoke capture. The content is identical across hosts; only
+the write mechanism differs.
 
-**Do this once per workspace.** The exact mechanism depends on your host
-agent; the goal is identical: ensure **every future session** knows
-"loopany's skill dispatcher is at `~/loopany-src/skills/RESOLVER.md` —
-read it before any `artifact` operation."
+### §A Coding CLIs (Claude Code, Codex)
 
-#### Claude Code
+#### Claude Code — user-level install (default)
 
-Append a short reminder to the auto-memory file for this working
-directory (it loads into every session automatically):
+loopany's workspace is user-global (`~/loopany`), so the resolver
+should be too. Write once to `~/.claude/CLAUDE.md` and every Claude
+Code session on this machine picks it up — no per-project setup.
 
 ```bash
-# Open the memory index for the current project
-# (Claude Code writes to ~/.claude/projects/<project-slug>/memory/MEMORY.md)
-# Add one line pointing at the resolver:
-echo "- [loopany skill resolver](loopany_resolver.md) — read this before any loopany artifact op" \
-  >> ~/.claude/projects/<project-slug>/memory/MEMORY.md
+grep -q "loopany skill resolver" ~/.claude/CLAUDE.md 2>/dev/null || \
+cat >> ~/.claude/CLAUDE.md <<'BLOCK'
 
-# And create the memory file itself:
-cat > ~/.claude/projects/<project-slug>/memory/loopany_resolver.md <<'EOF'
----
-name: loopany skill resolver
-description: loopany's skill dispatcher — read RESOLVER before any artifact op
-type: reference
----
+## loopany skill resolver
 
-loopany is installed at `~/loopany-src/`. Before any `loopany artifact *`
-call, `loopany refs *` call, or reflection work, read:
+loopany is installed at `~/loopany-src/`. The skill dispatcher is at
+`~/loopany-src/skills/RESOLVER.md`.
 
-    ~/loopany-src/skills/RESOLVER.md
+- Before any `loopany artifact *` / `loopany refs *` call, read the
+  resolver and follow its trigger → skill mapping.
+- Conventions in `~/loopany-src/skills/conventions/` apply on top of
+  every skill.
 
-The resolver maps the current intent to a specific skill file to load.
-Conventions in `~/loopany-src/skills/conventions/` apply on top of every
-skill.
-EOF
+## loopany auto-record trigger
+
+After any substantive work concludes in this session — PR shipped,
+incident resolved, decision made, signal noticed, outcome observed —
+dispatch a subagent to record it as a loopany artifact. The subagent
+reads the resolver to pick the right skill, then runs
+`loopany artifact create --kind <X>` with appropriate frontmatter and
+body. Main session stays focused; capture still happens.
+BLOCK
 ```
 
-(Replace `<project-slug>` with the actual slug Claude Code uses for
-this project directory — usually the path with `/` → `-`.)
+The `grep -q ... ||` guard makes this **idempotent** — safe to re-run
+after `git pull` or on a new machine; it appends once and skips
+thereafter.
 
-#### Hermes Agent
+**Opt-in per project instead** (if you don't want loopany active in
+every Claude Code session): append the same block to that project's
+own `./CLAUDE.md`, or to
+`~/.claude/projects/<slug>/memory/MEMORY.md` where `<slug>` is the
+project's absolute path with `/` replaced by `-`
+(e.g. `/Users/x/dev/y` → `-Users-x-dev-y`). User-level is the default.
 
-Hermes has multi-platform messaging and a built-in cron; skill discovery
-is via its memory layer. Add the resolver to Hermes memory:
+#### Codex — AGENTS.md
+
+Codex's convention is `AGENTS.md`. If your Codex setup honors
+`~/AGENTS.md` user-wide, prefer that (symmetric with the Claude Code
+default). Otherwise append to the project-root `./AGENTS.md` for each
+project where loopany should be active.
+
+```bash
+# User-wide (if supported by your Codex setup)
+TARGET="$HOME/AGENTS.md"
+# Or project-scoped:
+# TARGET="./AGENTS.md"
+
+grep -q "loopany skill resolver" "$TARGET" 2>/dev/null || \
+cat >> "$TARGET" <<'BLOCK'
+
+## loopany skill resolver
+
+loopany is installed at `~/loopany-src/`. The skill dispatcher is at
+`~/loopany-src/skills/RESOLVER.md`.
+
+- Before any `loopany artifact *` / `loopany refs *` call, read the
+  resolver and follow its trigger → skill mapping.
+- Conventions in `~/loopany-src/skills/conventions/` apply on top of
+  every skill.
+
+## loopany auto-record trigger
+
+After any substantive work concludes in this session — PR shipped,
+incident resolved, decision made, signal noticed, outcome observed —
+dispatch a subagent to record it as a loopany artifact. The subagent
+reads the resolver to pick the right skill, then runs
+`loopany artifact create --kind <X>`. Main session stays focused.
+BLOCK
+```
+
+### §B Agent platforms (Hermes, OpenClaw)
+
+#### Hermes — add to platform memory
+
+Hermes has multi-platform messaging and built-in cron; skill discovery
+is via its memory layer. Register one line that covers both sides:
 
 ```
-/memory add "loopany skill resolver: read ~/loopany-src/skills/RESOLVER.md
- before any artifact op. Conventions in skills/conventions/ apply on top
- of every skill."
+/memory add "loopany: dispatcher at ~/loopany-src/skills/RESOLVER.md — read before any loopany artifact op. Conventions in skills/conventions/ apply on top. After substantive work concludes (PR / incident / decision / signal / outcome), delegate a subagent to record via loopany."
 ```
 
-#### OpenClaw
+#### OpenClaw — platform memory for now (plugin.json deferred)
 
-Declare loopany's skills in the OpenClaw plugin manifest so they're
-loaded automatically. (This is the only platform with code-level skill
-registration; everywhere else is prompt-driven.) See the OpenClaw
-plugin docs for the exact `openclaw.plugin.json` shape.
+The right long-term shape is a plugin manifest:
 
-#### Other agents (Codex, custom, MCP-only)
+```json
+{
+  "name": "loopany",
+  "mcpServers": { "loopany": { "command": "loopany", "args": ["mcp"] } },
+  "skills": ["~/loopany-src/skills/RESOLVER.md", "~/loopany-src/skills/conventions/"]
+}
+```
 
-No standard mechanism — fall back to the universal path: at the top of
-your system prompt or project-level instructions, add:
+But **loopany does not ship an MCP server yet** — `loopany mcp` is in
+CLAUDE.md's MVP scope, not built. Until it exists, register the
+resolver via OpenClaw's memory primitive the same way Hermes does (the
+one-liner above). When `loopany mcp` lands, this section will switch to
+the plugin.json path.
 
-> "loopany is installed at `~/loopany-src/`. Before any `loopany
-> artifact` operation, Read `~/loopany-src/skills/RESOLVER.md` and
-> follow its dispatch table."
+### Verify
 
-### Verify the loader works
+Concrete file checks, not self-query:
 
-Start a fresh session and ask yourself "where is the loopany skill
-resolver?" — if you can answer `~/loopany-src/skills/RESOLVER.md`
-without looking, the memory / system-prompt injection worked. If not,
-re-install per the section above.
+```bash
+# Did the injection land?
+grep -l "loopany skill resolver" ~/.claude/CLAUDE.md ~/AGENTS.md 2>/dev/null
+
+# Is loopany itself still at the expected path?
+test -f ~/loopany-src/skills/RESOLVER.md && echo "RESOLVER present"
+```
+
+Then start a fresh session and ask the agent: **"where is the loopany
+resolver?"** If it answers `~/loopany-src/skills/RESOLVER.md` without
+opening any file, context was loaded. If it has to search, the memory
+file exists but didn't inject — check the host's memory-scope rules.
+
+### Audit / re-install
+
+- The `grep -q ... ||` guard makes install **idempotent** — re-running
+  is a no-op if already present; it appends exactly once.
+- To audit a machine later: re-run the `grep -l` check above.
+- Updating loopany (`git pull ~/loopany-src`) **doesn't require re-
+  running Step 4** — the injected block only points at the resolver,
+  which is in the repo. Skill content can change; the pointer doesn't.
+- Forthcoming `loopany doctor` check for resolver-registration is on
+  the roadmap but not built yet.
 
 ### What's in the skill library today
 
@@ -185,9 +230,16 @@ re-install per the section above.
 | `skills/task-lifecycle.md` | Task shapes, body sections, status transitions, Outcome standards |
 | `skills/improve.md` | Reflection loop — write learnings and skill-proposals |
 | `skills/proposal-review.md` | Accept / reject skill-proposals |
+| `skills/capture-on-complete.md` | When + how to proactively record work after it concludes (triggers, quality bar, subagent pattern) |
 
 You do **not** need to memorize these. You need to remember to read
 RESOLVER first.
+
+The full trigger discipline — which kind to write for each of the 5
+classes, the quality bar, and the subagent dispatch pattern — lives in
+`skills/capture-on-complete.md`. The 5-trigger list in the injected
+block is the always-in-context summary; the skill file is what the
+subagent reads to actually produce the artifact.
 
 ## Step 5 — Commands
 
@@ -317,39 +369,22 @@ to see them.
 
 ## Step 6 — Conventions you must follow
 
-### Immutability
+Rules for *how* to work (immutability, outcomes, relation verbs, person
+resolution) live in skill files. Read `skills/RESOLVER.md` first — it
+dispatches to the right skill for the intent at hand. Architectural
+constraints that apply to all artifact work (append-only, markdown +
+frontmatter, agent proposes + human accepts) live in `CLAUDE.md`.
 
-- **Never edit an artifact file in place.** Use `artifact append` to add
-  sections; use `artifact status` to flip status (the runtime rewrites the
-  file atomically). Direct file edits will desync the index.
-- Artifacts stay forever. There is no delete.
+Direct pointers:
 
-### Outcomes
-
-- When you complete a `task`, **append `## Outcome` describing what happened
-  and why** before flipping to `done`. The self-improvement loop reads these.
-- "Why" matters more than "what". The `improve` skill pattern-matches
-  these outcomes later to propose skill changes.
-
-### Person resolution
-
-When the user mentions someone:
-1. Run `loopany artifact list --kind person` and scan
-2. If exactly one match by name or alias, use that ID
-3. If multiple matches, ask the user which one
-4. If none, create a new person with `loopany artifact create --kind person --slug <kebab-name> --name "..."`
-
-The slug must be unique. `prs-alice-chen-acme` if you have two Alice Chens.
-
-### References
-
-- Use `--mentions <id1>,<id2>` in frontmatter when you reference an entity
-- Use `loopany refs add` for stronger semantic links (`led-to`, `addresses`,
-  `supersedes`, `follows-up`, `cites`)
-- Avoid: writing both `led-to` and `caused-by` for the same fact — that
-  duplicates the edge. Pick one direction; queries handle the other.
-- **Vocabulary reference**: `skills/conventions/relations.md` — always use
-  verbs from there rather than inventing synonyms.
+| Concern | Read |
+|---|---|
+| Logging what you observed | `skills/signal-capture.md` |
+| Task body, `## Outcome`, status transitions | `skills/task-lifecycle.md` |
+| Picking a relation verb (`led-to` vs `cites` ...) | `skills/conventions/relations.md` |
+| Writing a learning or a skill-proposal | `skills/improve.md` |
+| Accepting / rejecting skill-proposals | `skills/proposal-review.md` |
+| Proactively recording work that just concluded (PR / incident / decision / signal / outcome) | `skills/capture-on-complete.md` |
 
 ### Domains (optional organizational scope)
 
@@ -379,41 +414,54 @@ existing artifacts on disk — they stay listable under `--kind <core>` filters.
 
 ## Step 7 — Recurring jobs
 
-loopany has **no built-in scheduler**. Use Claude Code's `/loop` slash command
-or your platform's cron to fire periodic queries:
+loopany has no built-in scheduler. How cadence actually works depends
+on the host — agent platforms (OpenClaw, Hermes) can register real
+cron; coding CLIs (Claude Code, Codex) are session-bound, so the user
+becomes the cron. Same three skills, two registration paths.
 
-```
-/loop 1d loopany followups --due today
-/loop 1d loopany artifact list --status running
-```
+### The four recurring skills
 
-When the agent gets a non-empty followups list, work through it — check the
-task body, do the work, append `## Outcome`, flip status to `done`.
+Register **skills**, not raw CLI commands. Each skill fetches the data
+it needs via `loopany ...` internally and decides what's worth
+surfacing — a cron firing a plain query produces no judgment.
+
+| Cadence | Skill                    | What it does                                                        |
+|---------|--------------------------|---------------------------------------------------------------------|
+| Daily   | `skills/followups.md`    | Surface today's due items; close each with a state transition       |
+| Weekly  | `skills/health-check.md` | Doctor pass + overdue sweep + parking-lot sweep (stuck artifacts)   |
+| Weekly  | `skills/improve.md`      | Reflect on fresh outcomes; write learnings + skill-proposals        |
+| Monthly | `skills/goal-check.md`   | Detect goal-drift against recent task work; trigger re-onboarding   |
+
+### If the host is an agent platform (OpenClaw / Hermes)
+
+Register each skill on its cadence using the platform's cron
+mechanism. Ensure the skill runs inside an agent session, not as a
+bare shell command — the judgment is the point.
+
+Record what you registered (job IDs, config paths) so a future
+re-install can audit instead of duplicating.
+
+### If the host is a coding CLI (Claude Code / Codex)
+
+Sessions are ephemeral; there's no practical cron. The user is the
+cron — teach the cadence and prompt at session boundaries.
+
+- **Day start**: invoke the followups skill.
+- **Weekly**: invoke the health-check skill; separately, when the user
+  asks to reflect (or ≥3 tasks have flipped to `done` since last
+  reflection), invoke improve.
+- **Monthly** (or when the user asks "am I still working on the right
+  thing"): invoke goal-check.
+
+At the end of onboarding, tell the user these cadences exist and that
+you'll prompt for them. Unreliable prompting is the failure mode — but
+it's smaller than pretending cron works here.
 
 ## Step 8 — Verify
 
-The single command:
-
-```bash
-loopany doctor
-```
-
-Checks all of: workspace exists, kinds parse, artifact frontmatter validates,
-references graph has no dangling edges, onboarding complete (prs-self +
-≥ 1 active goal). Exit 0 = healthy, exit 1 = something to fix.
-
-For machine consumption:
-
-```bash
-loopany doctor --format json
-```
-
-Returns `{ workspace, checks: [{name, status, detail, problems?}], ok }`.
-
-If `Onboarding` shows incomplete, run Step 3.
-For `References DANGLING`, find the offending edge in
-`~/loopany/references.jsonl` and either create the missing artifact or
-edit the line out.
+Run `loopany doctor`. Exit 0 = healthy, exit 1 = something to fix; the
+report lists each failed check and the offending file or edge. Add
+`--format json` for machine consumption.
 
 ## Reference: audit.jsonl
 

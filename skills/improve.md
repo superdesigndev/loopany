@@ -45,9 +45,30 @@ loopany artifact list --kind skill-proposal --status rejected
 ```
 
 Filter to "recent" by looking at the ID prefix — task IDs are
-`tsk-YYYYMMDD-HHMMSS`, so sorting + slicing is trivial.
+`tsk-YYYYMMDD-HHMMSS`, so sorting + slicing is trivial. Default window:
+one cadence-interval's worth (≈ a week for weekly cadence).
 
-For each candidate artifact, read the body:
+Then **filter out what's already been processed.** An artifact already
+cited as `--evidence` in an active `learning` or non-rejected
+`skill-proposal` has already informed someone's belief — re-examining
+it for the same pattern just produces duplicates.
+
+```bash
+# Collect cited evidence IDs from both kinds
+loopany artifact list --kind learning --status active
+loopany artifact list --kind skill-proposal         # excluding rejected
+```
+
+Read each result's `evidence` field, union the IDs, subtract from your
+candidate set. What's left is **fresh, uncited evidence** — material
+that hasn't yet shaped any belief.
+
+**Exception — revalidating an existing belief.** When a `learning`'s
+own `check_at` fires, its evidence is relevant again — but that
+revisit belongs in [[./followups.md]], not here. improve looks
+forward; followups looks back at specific beliefs on schedule.
+
+For each remaining candidate, read the body:
 
 ```bash
 loopany artifact get <id>
@@ -92,7 +113,7 @@ loopany artifact create --kind learning \
   --title "Change tasks without a ## Before produce unfalsifiable outcomes" \
   --domain crewlet \
   --evidence "tsk-20260422-072256,tsk-20260422-072256-2,tsk-20260422-072257" \
-  --mentions "gol-crewlet-ops-health,prs-self" \
+  --mentions "gol-crewlet-ops-health" \     # this learning directly informs the goal
   --check-at 2026-07-22 \
   --content "$(cat <<'EOF'
 ## Observation
@@ -121,8 +142,8 @@ EOF
 **Key fields**:
 - `--title` — a declarative sentence, the belief itself
 - `--evidence` — list of artifact IDs; must be ≥ 2
-- `--mentions` — always include the goal and `prs-self` per ops-health
-  convention
+- `--mentions` — cite supporting artifacts, and any goal this learning
+  directly informs (see `kinds/goal.md` — don't add a goal reflexively)
 - `--check-at` — pick a date 1-3 months out; you're committing to revisit
 
 ## Step 4 — Write a `skill-proposal` (if a behavior change is warranted)

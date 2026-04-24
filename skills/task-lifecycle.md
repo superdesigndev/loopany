@@ -7,7 +7,7 @@ description: Create, append to, and close `task` artifacts with the required `##
 
 The main loop. A `task` carries its own outcome record — when it flips to
 `done`, the body has `## Outcome` explaining what actually happened.
-**`improve` reads these outcomes.** Weak outcomes produce weak learnings.
+[[./improve.md]] reads these outcomes.** Weak outcomes produce weak learnings.
 
 The discipline in this skill is what makes the self-improvement loop
 non-trivial. Cutting corners here defeats the whole system.
@@ -38,7 +38,6 @@ loopany artifact create --kind task \
   --title "[change] add upload_video tool to meta-ads plugin" \
   --status todo \
   --priority high \
-  --mentions "<goal-id>,prs-self" \
   --content "(see Hypothesis / Before / Outcome below — fill in)"
 
 loopany refs add --from tsk-... --to sig-... --relation addresses
@@ -249,12 +248,11 @@ When today's task's outcome points to future work:
 # Today's task closing
 loopany artifact status tsk-today done --reason "shipped, metric landed"
 
-# Future task for a 2-week recheck
+# Future task for a 2-week recheck — check_at is the followup hook
 loopany artifact create --kind task \
   --title "[change] recheck #447 compounding effect with #451-#453" \
   --status todo \
-  --scheduled-for 2026-05-06 \
-  --mentions "<goal-id>,prs-self"
+  --check-at 2026-05-06
 
 # Link them
 loopany refs add --from tsk-future --to tsk-today --relation follows-up
@@ -305,7 +303,7 @@ body sections to expect. Prefix or rename.
 ## Quick reference
 
 ```
-CREATE:  prefix + title, mentions goal+prs-self, set priority, skeleton body
+CREATE:  prefix + title, set priority, skeleton body
 RUN:     flip todo→running, fill Hypothesis (and Before for [change]!)
 CLOSE:   append Outcome → status done/failed → optional check_at for recheck
 LINK:    signal → `addresses`, prior task → `follows-up`, brief → `cites`

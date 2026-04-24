@@ -10,7 +10,7 @@ idPrefix: tsk-
 bodyMode: append
 storage: date-bucketed
 idStrategy: timestamp
-indexedFields: [status, priority, scheduled_for, check_at]
+indexedFields: [status, priority, check_at]
 ---
 
 # task
@@ -44,7 +44,7 @@ describe('parseKindDefinition', () => {
     expect(def.idPrefix).toBe('tsk-');
     expect(def.storage).toBe('date-bucketed');
     expect(def.idStrategy).toBe('timestamp');
-    expect(def.indexedFields).toEqual(['status', 'priority', 'scheduled_for', 'check_at']);
+    expect(def.indexedFields).toEqual(['status', 'priority', 'check_at']);
   });
 
   test('defaults dirName to {kind}s', () => {
