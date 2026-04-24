@@ -16,7 +16,7 @@ learnings and artifacts that motivated it.
 
 Accepted proposals apply a diff to the target skill file (committed via
 git). Rejected proposals are archived with their reason, so future runs
-of the `improve` skill don't re-suggest the same rule. `check_at` on an
+of the `reflect` skill don't re-suggest the same rule. `check_at` on an
 accepted proposal schedules a future review: did this change actually
 help? The `## Outcome` appended then closes the loop on the proposal
 itself.

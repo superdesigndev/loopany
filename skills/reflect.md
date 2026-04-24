@@ -1,22 +1,22 @@
 ---
-name: loopany-improve
-description: Reflect on recent `task` outcomes, dismissed signals, and rejected proposals to produce `learning` and `skill-proposal` artifacts. Use when the user asks to "reflect" / "improve yourself", on weekly or monthly cadence, or after ≥3 tasks flip to done.
+name: loopany-reflect
+description: Use when the user says "reflect" / "what have we learned" / "improve yourself", on weekly cadence, or after ≥3 `task`s flip to done in a short window. Reads recent outcomes + dismissed signals + rejected proposals, writes `learning` and (optionally) `skill-proposal` artifacts. Also use when writing a `learning` or `skill-proposal` from any source. The self-iteration loop.
 ---
 
-# improve — reflect on outcomes, write learnings and skill-proposals
+# reflect — on outcomes, write learnings and skill-proposals
 
-The self-iteration loop. Periodically you read recent `task` outcomes,
-dismissed `signal`s, and previously rejected proposals — and decide whether
-the evidence supports a new **belief** (`learning`) or a new **behavior
-change** (`skill-proposal`).
+Read recent `task` outcomes, dismissed `signal`s, and previously rejected
+proposals; decide whether the evidence supports a new **belief**
+(`learning`) or a new **behavior change** (`skill-proposal`).
 
-You don't edit skill files. You propose. A separate human step (via the
-`accept-proposal` skill) applies the diff.
+You don't edit skill files. You propose. A separate human step (via
+[[./proposal-review.md]]) applies the diff.
 
 ## When to run this
 
 - User asks: "reflect", "what have we learned", "improve yourself"
-- Scheduled cadence (weekly / monthly, per the active goal's recap cadence)
+- Scheduled cadence: weekly (monthly structural/goal review lives in
+  [[./monthly-review.md]])
 - After a batch of completed tasks (≥ 3 `task` flipped to `done` in a short
   window)
 
@@ -40,7 +40,7 @@ loopany artifact list --kind signal --dismissed true
 # Existing beliefs — are any of these now contradicted / extended?
 loopany artifact list --kind learning --status active
 
-# Previously rejected proposals — DO NOT re-suggest these
+# Previously rejected proposals — don't re-suggest these
 loopany artifact list --kind skill-proposal --status rejected
 ```
 
@@ -65,8 +65,8 @@ that hasn't yet shaped any belief.
 
 **Exception — revalidating an existing belief.** When a `learning`'s
 own `check_at` fires, its evidence is relevant again — but that
-revisit belongs in [[./followups.md]], not here. improve looks
-forward; followups looks back at specific beliefs on schedule.
+revisit belongs in [[./daily-followups.md]], not here. reflect looks
+forward; daily-followups looks back at specific beliefs on schedule.
 
 For each remaining candidate, read the body:
 
@@ -111,9 +111,9 @@ You're looking for **repeat signal**, not one-off correlations.
 ```bash
 loopany artifact create --kind learning \
   --title "Change tasks without a ## Before produce unfalsifiable outcomes" \
-  --domain crewlet \
+  --domain ads \
   --evidence "tsk-20260422-072256,tsk-20260422-072256-2,tsk-20260422-072257" \
-  --mentions "gol-crewlet-ops-health" \     # this learning directly informs the goal
+  --mentions "gol-ads-ops-health" \     # this learning directly informs the goal
   --check-at 2026-07-22 \
   --content "$(cat <<'EOF'
 ## Observation
@@ -128,7 +128,7 @@ only that the change shipped.
 - tsk-20260422-072257 — "Observability stack shifted; no delta measured."
 
 ## Scope
-Applies specifically to `[change]` tasks under the `crewlet` ops-health
+Applies specifically to `[change]` tasks under the `ads` ops-health
 goal. Does not apply to `[incident]` tasks (where the baseline is
 "things are broken" and the outcome is "things work").
 
@@ -156,9 +156,9 @@ loopany artifact create --kind skill-proposal \
   --title "Require ## Before in [change] tasks before flipping to done" \
   --target-skill "skills/change-ledger.md" \
   --change-type modify \
-  --domain crewlet \
+  --domain ads \
   --evidence "lrn-20260422-120000" \
-  --mentions "gol-crewlet-ops-health,lrn-20260422-120000" \
+  --mentions "gol-ads-ops-health,lrn-20260422-120000" \
   --check-at 2026-06-22 \
   --content "$(cat <<'EOF'
 ## Motivation
@@ -200,9 +200,10 @@ EOF
 )"
 ```
 
-### Proposal body format — MANDATORY sections
+### Proposal body format — required sections
 
-Every `skill-proposal` body must have:
+Every `skill-proposal` body must have these — without them the accept
+step has nothing to translate into a real edit:
 
 1. **`## Motivation`** — cite the `learning` (and underlying artifacts)
    that drove this.
@@ -216,7 +217,7 @@ Every `skill-proposal` body must have:
 
 **Why natural language, not unified diff?** Two reasons:
 - LLM-generated diffs with line numbers are brittle (context drift).
-- Accept is a separate agent step — `skills/accept-proposal.md` reads the
+- Accept is a separate agent step — [[./proposal-review.md]] reads the
   proposal, looks at the current skill file, and produces the real edit.
   The proposal describes intent; accept applies it.
 

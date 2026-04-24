@@ -10,7 +10,7 @@ internal decision matches a trigger below, **Read the target skill file
 before acting.** If two skills match, read both — they chain.
 
 Skills are markdown, not code. Every skill path is relative to the
-`loopany` project root (where this file lives).
+`loopany-src` skills root (where this file lives).
 
 ## Conventions (read these once, then keep in context)
 
@@ -18,7 +18,23 @@ These apply to **every** artifact you create or modify:
 
 | Skill | When it applies |
 |-------|-----------------|
-| `skills/conventions/relations.md` | Any `loopany refs add` call, or picking a relation verb |
+| [[./conventions/relations.md]] | Any `loopany refs add` call, or picking a relation verb |
+| [[./conventions/new-concept.md]] | Choosing between `note` / new kind / new domain; before `loopany kind propose` or before extracting a new domain from observed usage |
+| [[./conventions/core-artifacts.md]] | Any `signal` or `task` lifecycle action — create, write body, dismiss, promote, flip status |
+
+## First run — bootstrap
+
+Before any on-demand dispatch, check whether the workspace has been
+initialized:
+
+| Trigger | Read |
+|---|---|
+| No `goal` with `status: active` exists (fresh workspace after `loopany init`) | [[../ONBOARDING.md]] — run the 5-phase setup conversation |
+| User says "redo onboarding" / "reset the goal," or the active goal no longer matches recent task work | [[../ONBOARDING.md]] § "When to re-run onboarding" |
+
+Onboarding is the one flow that runs **without** being dispatched
+through this resolver. Every other request routes through the tables
+below.
 
 ## On-demand skills — match by trigger
 
@@ -26,37 +42,42 @@ These apply to **every** artifact you create or modify:
 
 | Trigger | Read |
 |---|---|
-| Main session notices work just ended (PR shipped, incident resolved, decision made, signal noticed, outcome observed) — before dispatching | `skills/capture-on-complete.md` (quality bar + subagent context) |
-| Subagent dispatched with "record this via loopany" | `skills/capture-on-complete.md` (routing), then the form skill it names |
+| Main session notices work just ended (PR shipped, incident resolved, decision made, signal noticed, outcome observed) — before dispatching | [[./proactive-capture.md]] (quality bar + subagent context) |
+| Subagent dispatched with "record this via loopany" | [[./proactive-capture.md]] (routing), then the form skill it names |
 
 ### Creating / handling artifacts
 
-| Trigger (user said or agent decided) | Read |
+All `signal` and `task` lifecycle lives in [[./conventions/core-artifacts.md]].
+Section pointers below are into that one file.
+
+| Trigger (state, not phrase) | Read |
 |---|---|
-| "I noticed…", "heads up", observed something worth logging | `skills/signal-capture.md` |
-| Creating a `signal` (any source) | `skills/signal-capture.md` |
-| Dismissing a signal, or it keeps recurring | `skills/signal-capture.md` (§ "Dismissing", § "Recurring signals") |
-| "Let's do X", committing to work, `[change]` / `[incident]` | `skills/task-lifecycle.md` |
-| Creating a `task`, writing Hypothesis / Before / Outcome | `skills/task-lifecycle.md` |
-| Flipping task to `done` / `failed` / `cancelled` | `skills/task-lifecycle.md` (§ "Status transitions") |
-| Upgrading a signal to a task | `skills/signal-capture.md` (§ "Upgrading") + `skills/task-lifecycle.md` |
+| Aware of a problem/need but **can't act now**, or **pending confirmation** | [[./conventions/core-artifacts.md]] § "Signals — when to create" |
+| Dismissing a signal, or it keeps recurring | [[./conventions/core-artifacts.md]] § "Dismissing", § "Recurring signals" |
+| "Let's do X", committing to work, `[change]` / `[incident]` | [[./conventions/core-artifacts.md]] § "Tasks — Three shapes" |
+| Writing Hypothesis / Before / Outcome on a `task` | [[./conventions/core-artifacts.md]] § "Body sections" |
+| Flipping task to `done` / `failed` / `cancelled` | [[./conventions/core-artifacts.md]] § "Status transitions" |
+| Upgrading a signal to a task | [[./conventions/core-artifacts.md]] § "Signal → Task promotion" |
 
 ### Self-iteration loop
 
 | Trigger | Read |
 |---|---|
-| "reflect", "what have we learned", "improve yourself", weekly/monthly review | `skills/improve.md` |
-| ≥ 3 `task`s flipped to `done` recently with similar Outcomes | `skills/improve.md` |
-| Writing a `learning` or a `skill-proposal` | `skills/improve.md` (§ Step 3, § Step 4) |
-| "accept spr-…", "reject spr-…", "let's take that proposal" | `skills/proposal-review.md` |
-| Walking through pending proposals | `skills/proposal-review.md` |
+| "reflect", "what have we learned", "improve yourself", weekly review | [[./reflect.md]] |
+| ≥ 3 `task`s flipped to `done` recently with similar Outcomes | [[./reflect.md]] |
+| Writing a `learning` or a `skill-proposal` | [[./reflect.md]] (§ Step 3, § Step 4) |
+| "accept spr-…", "reject spr-…", "let's take that proposal" | [[./proposal-review.md]] |
+| Walking through pending proposals | [[./proposal-review.md]] |
+| "is this still the right goal?", "anything structural worth locking in?", monthly review | [[./monthly-review.md]] |
+| "what's due today", "what am I forgetting", daily check-in | [[./daily-followups.md]] |
+| "what's slipping", "weekly check", "is the workspace healthy" | [[./weekly-sweep.md]] |
 
 ## Disambiguation
 
 When multiple skills match:
 
-1. **Prefer the most specific skill.** `task-lifecycle` over a vague "creating things".
-2. **Conventions apply on top of any skill.** Reading `task-lifecycle.md` doesn't exempt you from `conventions/relations.md` when you then call `refs add`.
+1. **Prefer the most specific skill.** `core-artifacts` over a vague "creating things".
+2. **Conventions apply on top of any skill.** Reading `core-artifacts.md` doesn't exempt you from `conventions/relations.md` when you then call `refs add`.
 3. **Skill chaining is explicit in each skill.** Follow the "Upgrading" / "Chain" / "Next" pointers inside a skill rather than guessing which one comes next.
 4. **When in doubt, ask the user** before committing an artifact. A bad artifact is worse than a clarifying question.
 
@@ -75,6 +96,5 @@ skill:
 - Reading `loopany followups --due today` output and deciding what to do per item
 - Deciding whether a named entity should become a new `person` artifact or just a mention
 - Writing a `brief` (daily / weekly summary)
-- Picking / creating a `domain`
 
 See project TODOS or ask the user if one of these is blocking you.

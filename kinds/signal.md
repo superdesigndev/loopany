@@ -17,6 +17,7 @@ to a follow-up artifact) or dismissed.
 
 ```yaml
 summary:   { type: string, required: true }
+domain:    { type: string, required: false }
 source:    { type: string, required: false }   # 'email' / 'chat' / 'manual' / etc.
 url:       { type: string, required: false }
 dismissed: { type: bool, default: false }

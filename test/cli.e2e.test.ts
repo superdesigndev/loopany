@@ -1,7 +1,8 @@
 import { describe, expect, test } from 'bun:test';
 import { existsSync, readdirSync, readFileSync } from 'fs';
 import { join } from 'path';
-import { runCli, newWorkspace } from './helpers/cli.ts';
+import { runCli, runCliWithStdin, newWorkspace } from './helpers/cli.ts';
+import { writeFileSync } from 'fs';
 
 async function init(): Promise<string> {
   const ws = newWorkspace();
@@ -171,6 +172,102 @@ describe('loopany artifact create', () => {
     const r = await runCli(ws, 'artifact', 'create', '--kind', 'nope', '--title', 'x');
     expect(r.code).not.toBe(0);
     expect(r.stderr.toLowerCase()).toContain('unknown kind');
+  });
+});
+
+describe('body input — --content-file, stdin, escape guard', () => {
+  test('--content-file reads body from a file with real newlines preserved', async () => {
+    const ws = await init();
+    const bodyPath = join(ws, '_body.md');
+    writeFileSync(bodyPath, 'line one\n\nline two\n\nline three\n');
+
+    const r = await runCli(
+      ws, 'artifact', 'create',
+      '--kind', 'note', '--slug', 'from-file', '--title', 'from-file',
+      '--content-file', bodyPath,
+    );
+    expect(r.code).toBe(0);
+    const path = JSON.parse(r.stdout).path;
+    const file = readFileSync(path, 'utf-8');
+    expect(file).toContain('line one\n\nline two\n\nline three');
+    expect(file).not.toContain('\\n');
+  });
+
+  test('--content-file - reads body from stdin', async () => {
+    const ws = await init();
+    await runCli(ws, 'artifact', 'create', '--kind', 'person', '--slug', 'self', '--name', 'X');
+
+    const r = await runCliWithStdin(
+      ws, 'para 1\n\npara 2\n',
+      'artifact', 'create',
+      '--kind', 'note', '--slug', 'from-stdin', '--title', 'from-stdin',
+      '--content-file', '-',
+    );
+    expect(r.code).toBe(0);
+    const path = JSON.parse(r.stdout).path;
+    const file = readFileSync(path, 'utf-8');
+    expect(file).toContain('para 1\n\npara 2');
+  });
+
+  test('rejects inline --content with literal \\n and no real newlines', async () => {
+    const ws = await init();
+    // Build an arg that carries the literal 4-char sequence `\n\n` with no real \n.
+    const literal = 'first' + String.raw`\n\n` + 'second';
+    const r = await runCli(
+      ws, 'artifact', 'create',
+      '--kind', 'note', '--slug', 'bad', '--title', 'bad',
+      '--content', literal,
+    );
+    expect(r.code).not.toBe(0);
+    expect(r.stderr).toContain('literal');
+    expect(r.stderr.toLowerCase()).toContain('shell');
+    expect(r.stderr).toContain('--content-file');
+  });
+
+  test('accepts inline --content with real newlines even if it also has literal \\n', async () => {
+    const ws = await init();
+    // Mixed: has a real newline AND a literal `\n`. Not a shell-escape mistake.
+    const mixed = 'code example: ' + String.raw`\n` + '\nsecond line';
+    const r = await runCli(
+      ws, 'artifact', 'create',
+      '--kind', 'note', '--slug', 'mixed', '--title', 'mixed',
+      '--content', mixed,
+    );
+    expect(r.code).toBe(0);
+  });
+
+  test('rejects passing both --content and --content-file', async () => {
+    const ws = await init();
+    const r = await runCli(
+      ws, 'artifact', 'create',
+      '--kind', 'note', '--slug', 'both', '--title', 'both',
+      '--content', 'inline',
+      '--content-file', '/does/not/matter',
+    );
+    expect(r.code).not.toBe(0);
+    expect(r.stderr.toLowerCase()).toContain('either --content or --content-file');
+  });
+
+  test('artifact append accepts --content-file and rejects literal \\n', async () => {
+    const ws = await init();
+    const c = await runCli(ws, 'artifact', 'create', '--kind', 'task', '--title', 't', '--status', 'running');
+    const id = JSON.parse(c.stdout).id;
+
+    const bodyPath = join(ws, '_append.md');
+    writeFileSync(bodyPath, 'outcome line A\n\noutcome line B\n');
+    const ok = await runCli(ws, 'artifact', 'append', id, '--section', 'Outcome', '--content-file', bodyPath);
+    expect(ok.code).toBe(0);
+
+    const get = await runCli(ws, 'artifact', 'get', id);
+    expect(get.stdout).toContain('outcome line A\n\noutcome line B');
+
+    // Second append with literal \n — should be rejected
+    const bad = await runCli(
+      ws, 'artifact', 'append', id, '--section', 'Outcome',
+      '--content', 'nope' + String.raw`\n\n` + 'still nope',
+    );
+    expect(bad.code).not.toBe(0);
+    expect(bad.stderr.toLowerCase()).toContain('literal');
   });
 });
 

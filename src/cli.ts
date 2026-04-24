@@ -18,6 +18,8 @@ import { runFollowups } from './commands/followups.ts';
 import { runDoctor, formatReport } from './commands/doctor.ts';
 import { runDomainList, runDomainEnable, runDomainDisable } from './commands/domain.ts';
 import { runFactory } from './commands/factory.ts';
+import { runSearch } from './commands/search.ts';
+import { runReindex } from './commands/reindex.ts';
 
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
@@ -223,6 +225,23 @@ async function dispatch(
       await runFactory(engine, _rest);
       return;
     }
+    case 'search': {
+      const engine = await bootstrap();
+      const result = await runSearch(engine, _rest);
+      meta.count = result.length;
+      process.stdout.write(JSON.stringify(result, null, 2) + '\n');
+      return;
+    }
+    case 'reindex': {
+      const engine = await bootstrap();
+      const result = await runReindex(engine, _rest);
+      meta.indexed = result.indexed;
+      meta.skipped = result.skipped;
+      meta.removed = result.removed;
+      meta.embedder = result.embedder;
+      process.stdout.write(JSON.stringify(result, null, 2) + '\n');
+      return;
+    }
     case 'doctor': {
       const engine = await bootstrap();
       const report = await runDoctor(engine, _rest);
@@ -267,6 +286,11 @@ GRAPH
 SCHEDULING
   followups [--due today|overdue]       Find due check_at items
 
+SEARCH
+  reindex [--force] [--no-embed]        Rebuild hybrid search index from artifacts
+  search <query> [--kind K] [--domain D] [--status S] [--limit N]
+                                        Hybrid keyword + semantic search
+
 UI
   factory [--port N] [--no-open]        Walkable pixel factory view of the workspace
 
@@ -274,6 +298,19 @@ SYSTEM
   kind list                             Show registered kinds
   doctor                                Check workspace integrity
   --version                             Print version
+
+EXAMPLES
+  Field flags are per-kind. To see exact fields for a kind, pass any
+  unknown flag (e.g. \`--?\`) and the error lists valid flags. Common shapes:
+
+    artifact create --kind goal    --title "..." --status active --content-file -
+    artifact create --kind task    --title "[change] ..." --status todo --priority medium
+    artifact create --kind signal  --summary "..." --source observability --domain ads
+    artifact create --kind person  --slug self --name "Ada Lovelace" --emails ada@acme.example
+    artifact create --kind note    --title "..." --content "..."
+
+    refs add --from <id> --to <id> --relation mentions
+    artifact status tsk-... done --reason "shipped"
 `);
 }
 

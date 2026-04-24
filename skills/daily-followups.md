@@ -1,9 +1,9 @@
 ---
-name: loopany-followups
-description: Daily sweep — read today's due `check_at` items, decide which need user attention vs can be silently resolved or deferred. Use on daily cadence, or on demand when the user asks "what's due today" / "what am I forgetting."
+name: loopany-daily-followups
+description: Use on daily cadence, at session start, or when the user says "what's due today" / "what am I forgetting" / "daily check-in". Reads today's due `check_at` items, classifies each (silent resolve / surface / defer), and brings the user only what needs attention. Every surfaced item must close before session ends.
 ---
 
-# followups — daily check-in on what's due
+# daily-followups — daily check-in on what's due
 
 `check_at` is how loopany surfaces the thing you owe future-you. Every
 day the scheduler (or the user, in a coding CLI) fires this skill.
@@ -27,7 +27,7 @@ loopany followups --due today
 ```
 
 Returns artifacts whose `check_at` is today. Overdue sweeps belong to
-[[./health-check.md]] — don't do them here.
+[[./weekly-sweep.md]] — don't do them here.
 
 If the list is empty, say so briefly and stop. A quiet day is a valid
 outcome; don't manufacture something to surface.
@@ -46,7 +46,7 @@ Three buckets:
 it was scheduled for. A `learning` whose scope obviously still holds →
 extend `check_at` with a one-line reason. A `task` whose outcome is
 already captured elsewhere → flip to `done` via
-[[./task-lifecycle.md]].
+[[./conventions/core-artifacts.md]].
 
 **B. Needs the user.** A `[change]` task whose `## Outcome` requires
 numbers only the user has. A `learning` that may now be wrong. A
@@ -84,10 +84,10 @@ needed."
 
 Don't handle outcomes inline. Route each response to the right skill:
 
-- Task outcome → [[./task-lifecycle.md]]
+- Task outcome → [[./conventions/core-artifacts.md]] § Tasks
 - Learning revision → extend `check_at`, or write a new learning with
-  `supersedes` (see [[./improve.md]])
-- Signal upgrade / dismiss → [[./signal-capture.md]]
+  `supersedes` (see [[./reflect.md]])
+- Signal upgrade / dismiss → [[./conventions/core-artifacts.md]] § Signals
 
 ## Step 5 — Close every item you surfaced
 
@@ -109,7 +109,7 @@ explicitly chose to push, next session will know why.
 
 **Why this step exists:** without it, nothing actually happens.
 Every surfaced item sits at its original `check_at`, shows up again
-tomorrow, surfaces in [[./health-check.md]] next week, and trains the
+tomorrow, surfaces in [[./weekly-sweep.md]] next week, and trains the
 user to ignore both digests. A digest whose prompts don't produce
 state changes is noise.
 
@@ -119,7 +119,7 @@ state changes is noise.
 
 Three prompts + three unresolved responses = worse than no digest.
 Every surfaced item ends the session in one of `resolved / deferred /
-retired`. Zombie items are how followups decays into noise.
+retired`. Zombie items are how this skill decays into noise.
 
 ### ❌ Dumping raw CLI output
 
@@ -129,7 +129,7 @@ judgment — "these 3 of 11 need you" — not transcription.
 ### ❌ Running `--due overdue` here
 
 Overdue sweeps are weekly. Mixing them into the daily digest means
-nothing feels urgent. See [[./health-check.md]].
+nothing feels urgent. See [[./weekly-sweep.md]].
 
 ### ❌ Deferring without a reason
 
@@ -147,6 +147,6 @@ QUERY:    loopany followups --due today
 READ:     loopany artifact get <id> for each
 CLASSIFY: A=silent resolve · B=surface · C=defer with reason
 SURFACE:  only B · one line each · concrete prompt
-DISPATCH: task-lifecycle / signal-capture / improve handle the action
+DISPATCH: core-artifacts / reflect handle the action
 CLOSE:    every surfaced item ends resolved / deferred / retired — no zombies
 ```

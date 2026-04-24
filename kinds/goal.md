@@ -23,6 +23,7 @@ the old goal stays cited so we can look back at why it changed.
 
 ```yaml
 title:  { type: string, required: true }
+domain: { type: string, required: false }
 status: { type: enum, values: [active, superseded, archived] }
 ```
 

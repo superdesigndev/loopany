@@ -1,31 +1,29 @@
 ---
-name: loopany-capture-on-complete
-description: Decide whether and how to record work via loopany after a substantive event concludes — PR shipped, incident resolved, decision made, signal noticed, outcome observed. Routes to the right kind + downstream form skill, and specifies the subagent dispatch pattern.
+name: loopany-proactive-capture
+description: Use immediately after substantive work concludes in a loopany-enabled session — PR shipped, incident resolved, decision made, problem noticed but not yet acted on, outcome observed. Routes to the right kind, then hands off to [[./conventions/core-artifacts.md]] (signal/task body discipline) or [[./reflect.md]] (learnings). Specifies the subagent dispatch pattern. Main session reads to filter; subagent reads to write.
 ---
 
-# capture-on-complete — when + how to proactively record
+# proactive-capture — record after work concludes
 
-The capture-discipline skill. Step 4 of INSTALL injects the 5 trigger
-classes into every agent session's memory; this file has the routing
-table, quality bar, and subagent dispatch pattern those triggers feed.
+The routing table + quality bar + subagent dispatch pattern for writing
+the right artifact after a "substantive thing just finished."
 
 **Two entry points:**
 
-- **Main session** reads this when it notices a trigger fired — to
-  decide whether the event clears the quality bar and to compose the
-  context package for the subagent.
-- **Subagent** reads this (and its named form skill) to pick the right
-  kind, write the artifact, and return the ID.
+- **Main session** — notices a trigger fired, runs the quality bar, and
+  composes the context package for the subagent.
+- **Subagent** — reads this + the named form skill, picks the right
+  kind, writes the artifact, returns the ID.
 
 ## When to trigger — 5 classes
 
-| Trigger | Target kind | Form skill |
+| Trigger | Target kind | Body discipline |
 |---|---|---|
-| **PR shipped / merged** | `task` — prefix `[change]` if the goal was to move a metric, `[incident]` if it was a fix | `skills/task-lifecycle.md` |
-| **Incident resolved** | `task` with `[incident]` prefix | `skills/task-lifecycle.md` |
+| **PR shipped / merged** | `task` — prefix `[change]` if the goal was to move a metric, `[incident]` if it was a fix | [[./conventions/core-artifacts.md]] § Tasks |
+| **Incident resolved** | `task` with `[incident]` prefix | [[./conventions/core-artifacts.md]] § Tasks |
 | **Decision made** with rationale worth preserving | `note` (default), or `task --status done` if the decision *was* the deliverable | inline guidance below |
-| **Signal noticed** | `signal` | `skills/signal-capture.md` |
-| **Outcome observed** on an existing task | **append** `## Outcome` to that task — do NOT create a new artifact | `skills/task-lifecycle.md` (§ Outcome) |
+| **Problem/need noticed, not acting now** (or pending confirmation) | `signal` | [[./conventions/core-artifacts.md]] § Signals |
+| **Outcome observed** on an existing task | **append** `## Outcome` to that task — don't create a new artifact | [[./conventions/core-artifacts.md]] § Outcome |
 
 "Substantive" means the event produced evidence or a decision that a
 future reader would need to find. Events that produced nothing citable
@@ -51,7 +49,9 @@ shouldn't be creating a `task`.
 
 ## Subagent dispatch — the pattern
 
-Main session does NOT write the artifact inline. Instead:
+Main session does not write the artifact inline. Why: inline capture
+breaks the main session's focus, and the main session is still holding
+unrelated context that bleeds into a weaker Outcome. Hand off instead:
 
 1. **Identify + filter.** Main session notices the trigger, runs the
    quality-bar check.
@@ -64,12 +64,13 @@ Main session does NOT write the artifact inline. Instead:
 
    > "Record this as a loopany artifact. Consult
    > `~/loopany-src/skills/RESOLVER.md` and
-   > `~/loopany-src/skills/capture-on-complete.md` to pick the right
+   > `~/loopany-src/skills/proactive-capture.md` to pick the right
    > kind and form skill. Return the artifact ID."
 
 4. **Subagent executes**:
    - Reads the resolver + this file
-   - Reads the chosen form skill (task-lifecycle / signal-capture / …)
+   - Reads [[./conventions/core-artifacts.md]] for signal/task body shape
+     (or [[./reflect.md]] for learnings)
    - Runs `loopany artifact create --kind <X> …` with proper frontmatter
      and body
    - Returns the new artifact ID
@@ -102,7 +103,7 @@ Decisions don't map neatly to task/signal. Fast flowchart:
 - Is it a **reasoned preference / principle** now in force? → `note`
   titled "decided: X over Y because Z"
 - Is it a **belief formed from ≥ 2 data points**? → that's a `learning`,
-  not a one-off capture — use the `improve` skill instead
+  not a one-off capture — use the `reflect` skill instead
 
 Default `note` when unsure. Notes are the safe kind.
 
@@ -111,7 +112,7 @@ Default `note` when unsure. Notes are the safe kind.
 ### ❌ Trigger on every message exchange
 
 Writing an artifact after every Q&A turn pollutes the brain with
-low-signal noise; `improve` then can't find patterns through it.
+low-signal noise; `reflect` then can't find patterns through it.
 Trigger only at **completed-thing** boundaries.
 
 ### ❌ Skip the subagent, write inline
@@ -130,12 +131,11 @@ to actually conclude.
 ### ❌ Dispatch without running the quality bar
 
 Subagent gets a malformed trigger → writes a noise artifact → pollutes
-`improve`. The main session's filtering job is non-negotiable.
+`reflect`. The main session's filtering job exists for a reason.
 
 ## Cross-refs
 
-- Form skills: `skills/task-lifecycle.md`, `skills/signal-capture.md`,
-  `skills/improve.md` (for learnings)
-- Injected trigger summary in agent memory: `INSTALL_FOR_AGENTS.md`
-  Step 4
-- Resolver entry point: `skills/RESOLVER.md`
+- Body discipline: [[./conventions/core-artifacts.md]] (signal + task lifecycle)
+- Learnings / proposals: [[./reflect.md]]
+- Injected trigger summary in agent memory: `INSTALL_FOR_AGENTS.md` Step 4
+- Resolver entry point: [[./RESOLVER.md]]

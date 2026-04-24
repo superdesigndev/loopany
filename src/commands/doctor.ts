@@ -6,7 +6,7 @@
 //   artifacts        — every frontmatter passes its kind's zod schema
 //   references       — no dangling edges (both endpoints exist)
 //   onboarding       — prs-self artifact + ≥1 active goal
-//   goal coverage    — (warn) non-entity artifacts mention a goal
+//   goal coverage    — (warn) every task mentions a goal
 //   domain coverage  — (warn) artifact domains are in enabled_domains
 //
 // What doctor does NOT do: lexical / semantic scans of body content (e.g.
@@ -127,12 +127,13 @@ export async function runDoctor(engine: Engine, args: string[]): Promise<DoctorR
     problems: onboardingProblems.length ? onboardingProblems : undefined,
   });
 
-  // Goal coverage — warning, not fail. Skipped if no goals exist (onboarding catches that).
+  // Goal coverage — warning, not fail. Only tasks are checked; other kinds
+  // (signal, note, brief, …) are free to be goal-less. Skipped if no goals
+  // exist (onboarding catches that).
   const goalIds = new Set(idx.byKind('goal').map((m) => m.id));
   if (goalIds.size > 0) {
     const orphans: string[] = [];
-    for (const meta of idx.all()) {
-      if (meta.kind === 'goal' || meta.kind === 'person') continue;
+    for (const meta of idx.byKind('task')) {
       const mentions = (meta.frontmatter.mentions as string[] | undefined) ?? [];
       if (!mentions.some((m) => goalIds.has(m))) {
         orphans.push(`${meta.id}: no goal mention`);
@@ -143,8 +144,8 @@ export async function runDoctor(engine: Engine, args: string[]): Promise<DoctorR
       status: orphans.length === 0 ? 'ok' : 'warn',
       detail:
         orphans.length === 0
-          ? 'all non-entity artifacts mention a goal'
-          : `${orphans.length} artifact(s) without goal mention`,
+          ? 'all tasks mention a goal'
+          : `${orphans.length} task(s) without goal mention`,
       problems: orphans.length ? orphans : undefined,
     });
   }

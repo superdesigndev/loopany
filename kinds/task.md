@@ -18,6 +18,7 @@ reads from.
 
 ```yaml
 title:         { type: string, required: true }
+domain:        { type: string, required: false }
 status:        { type: enum, values: [todo, running, in_review, done, failed, cancelled] }
 priority:      { type: enum, values: [low, medium, high, critical], default: medium }
 check_at:      { type: date, required: false }   # `loopany followups` reads this

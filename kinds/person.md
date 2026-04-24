@@ -21,6 +21,7 @@ over time. Body is append-only timeline of mentions and updates.
 
 ```yaml
 name:     { type: string, required: true }
+domain:   { type: string, required: false }
 aliases:  { type: 'string[]', required: false }   # 'alice' / 'a. chen' / 'A.C.'
 emails:   { type: 'string[]', required: false }
 handles:  { type: 'string[]', required: false }   # @twitter / linkedin slug / etc.

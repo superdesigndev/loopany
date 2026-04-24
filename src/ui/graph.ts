@@ -101,9 +101,17 @@ export async function buildGraph(engine: Engine): Promise<GraphPayload> {
   };
 }
 
+// Different kinds carry their display label under different keys:
+//   task / brief / goal / learning / note / skill-proposal → `title`
+//   signal → `summary`
+//   person → `name`
+// Fall through in that priority; only then back off to the id.
 function pickTitle(fm: Record<string, unknown>, fallback: string): string {
-  const t = fm.title;
-  return typeof t === 'string' && t.length > 0 ? t : fallback;
+  for (const key of ['title', 'summary', 'name']) {
+    const v = fm[key];
+    if (typeof v === 'string' && v.length > 0) return v;
+  }
+  return fallback;
 }
 
 function firstLines(body: string, n: number): string {

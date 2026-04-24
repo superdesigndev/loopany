@@ -1,6 +1,6 @@
 ---
 name: loopany-proposal-review
-description: Accept or reject a pending `skill-proposal`. On accept, edit the target skill file, git-commit, and append `## Outcome` to the proposal. Use when user says "accept spr-…" / "reject spr-…", or wants to batch-walk pending proposals.
+description: Use when accepting or rejecting a `skill-proposal` — triggers include "accept spr-…", "reject spr-…", "let's take that proposal", "ok do it" after seeing a proposal body, or batch-walking pending proposals. Accept = edit target skill + git commit; reject = record reason. The other half of the self-iteration loop, paired with [[./reflect.md]].
 ---
 
 # proposal-review — accept or reject a `skill-proposal`
@@ -12,7 +12,7 @@ to do with a pending `skill-proposal`, this skill applies the decision.
 **Rejecting** = record why + move on.
 
 Either way, the proposal artifact captures the full trail — future
-`improve` runs read it to avoid re-suggesting the same thing.
+`reflect` runs read it to avoid re-suggesting the same thing.
 
 ## When to run this
 
@@ -146,7 +146,7 @@ EOF
 )"
 ```
 
-**The reason matters.** Future `improve` runs read rejected proposals to
+**The reason matters.** Future `reflect` runs read rejected proposals to
 avoid re-suggesting the same thing. A one-line reject ("no thanks") is
 useless evidence.
 

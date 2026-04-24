@@ -1,6 +1,6 @@
 ---
 name: loopany-relations
-description: Convention for picking the `relation` verb in `loopany refs add` or frontmatter `mentions[]`. Read before creating any reference edge between artifacts.
+description: Pick the right `relation` verb (led-to / addresses / mentions / supersedes / follows-up / cites) when running `loopany refs add`, writing `mentions[]` in frontmatter, or any `[[id]]` wiki link. Read before creating any reference edge — synonyms fragment the graph.
 ---
 
 # relations — convention for `loopany refs add --relation <verb>`

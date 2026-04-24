@@ -24,7 +24,7 @@ these holds:
 3. **Structured queries** — you'll filter or aggregate by typed fields
    (priority, status, due date)
 4. **Required body shape** — a downstream program depends on fixed
-   sections (e.g. `improve` reads `## Outcome` from tasks)
+   sections (e.g. `reflect` reads `## Outcome` from tasks)
 
 If none of the above hold, it's a `note`. ID is a human-supplied slug
 (`nte-project-phoenix`, `nte-karpathy-llm-talk`) so the file is
@@ -34,6 +34,7 @@ addressable without a timestamp prefix.
 
 ```yaml
 title:    { type: string, required: true }
+domain:   { type: string, required: false }
 tags:     { type: 'string[]', required: false }
 mentions: { type: 'string[]', required: false }
 ```

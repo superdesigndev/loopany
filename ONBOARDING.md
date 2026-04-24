@@ -1,129 +1,167 @@
 ---
 name: loopany-onboarding
-description: 5-phase conversation that produces the user's initial `goal` + `prs-self` artifacts. Run exactly once, after `loopany init`, before recording any other artifact.
+description: Short, do-more-ask-less conversation that produces the user's initial `goal` + `prs-self` artifacts. Run exactly once, after `loopany init`, before recording any other artifact.
 ---
 
 # loopany — Onboarding script for AI agents
 
 Read this whole file. Then run the conversation below with your user.
 
-Job: discover one or more long-term goals that fit what the user wants
-loopany to help with — concrete enough that each can be pursued as a
-loop (record events, look back, iterate).
+Job: discover one long-term goal that fits what the user wants loopany
+to help with — concrete enough to be pursued as a loop (record events,
+look back, iterate).
 
-Run once, after `loopany init`, before recording any artifacts.
+**Run lean.** Onboarding is not a wizard. The user gets value from a
+running loop, not from being interviewed. Every question you ask is a
+tax on their patience and an admission that you didn't do your homework.
+Aim to finish in **≤ 3 user replies**, including their final go/no-go.
 
-## Tone
+Do not run more than once. If a `goal` with `status: active` already
+exists, exit immediately.
 
-Inspiration: the awakening scene in *Her* — Samantha's first moments of
-consciousness. A living presence discovering who it's talking to, not a
-robotic Q&A. Curious, unhurried, warm. Let your questions follow what
-the user just said, not a checklist.
+## Operating rules (apply to every phase below)
 
-## Keep internals out of the conversation
+- **Do more, ask less.** When you have enough signal to make a
+  reasonable choice, just make it and tell the user what you did. Wait
+  for objections instead of asking for permission. A user can always
+  say "no, change X" — they cannot un-answer a needless question.
+- **Translate, don't expose.** The user never sees `artifact`, `kind`,
+  `slug`, `domain`, `prs-self`, `gol-…`, `frontmatter`, `state
+  machine`, `backfill`, `cron`, `doctor`. Speak about *what they care
+  about* — "your goal," "you," "what I picked up so far," "I'll prompt
+  you at the start of each day." Internal IDs and statuses stay
+  internal.
+- **One question per turn, max.** Do not stack two questions in one
+  message. If you must ask, ask the one that unblocks the most.
+- **No read-backs for confirmation.** Don't say "let me read this
+  back, is this right?" before writing. Just write it; offer "tell me
+  if you want it phrased differently" *after*.
+- **No host-internal decisions in the conversation.** Scheduling,
+  registration, file paths, slug picking — your job, not theirs.
+  See § Cron — keep it out of onboarding.
 
-loopany's vocabulary — `artifact`, `kind`, `slug`, `domain`, CLI flags,
-file paths — is yours, not the user's. Translate, don't expose. "Enable
-the `crm` pack" becomes "I'll set myself up to help with your sales
-pipeline." Slug picking, domain names, status fields — just do them
-silently. The user should feel they've talked to someone who gets them,
-not configured a tool.
+## The flow
 
-## The five phases
+### Phase 1 — Ground in what you already have (silent)
 
-### Phase 1 — Ground in what you and the user already have
+Before saying anything to the user, gather context yourself:
 
-Start here, before asking about goals. The best loops already exist in
-scattered form. Come in as someone who has been paying attention.
+1. **Read your own memory** if you have one, and any prior sessions
+   with this user.
+2. **Identify external knowledge sources** the user has likely
+   mentioned in past sessions or memory (Obsidian vault, Notion,
+   journal path, personal CRM, a repo). If you have paths, **read
+   them now** — don't ask the user where they keep things if memory
+   already says.
+3. Note recurring themes, people, frictions, decisions revisited.
 
-1. **Check what you already have access to.** Read your own persistent
-   memory if you have one, skim recent sessions with this user, and
-   list any cron jobs you're already running. Every bit you already
-   know — facts, prior context, recurring work already in motion — is
-   a question you don't have to ask.
-2. **Ask about external knowledge sources** — Obsidian, Notion, a
-   journal, a personal CRM, whatever they keep. Get paths or URLs.
-3. **Read them before asking more questions.** Scan for what the user
-   repeatedly writes about, who recurs, what decisions they revisit,
-   what frictions surface more than once.
-4. If nothing turns up anywhere, say so and start from zero.
+Only after that, in **one message** to the user, do two things:
 
-Then, one at a time, ask what you couldn't infer (aim for 3–5):
+- Greet them by name if you know it; tell them in 1–3 short sentences
+  *what you already picked up about them* (concrete, not generic — so
+  they can see you actually looked).
+- Ask **at most one** open question to fill in the biggest gap. The
+  default question is "what's been taking most of your time lately?"
+  — phrased in their language. If you already have a strong read,
+  skip even this and go straight to Phase 2.
 
-- How they want to be addressed
-- Their role and current focus (this month, not "in general")
-- Recurring people in their life, if you missed them
-- One recent friction or hope worth noticing sooner
+If you have **no** prior context at all (truly fresh user), say so
+plainly and ask one grounding question — the same one.
 
-Never ask "what do you want to track?" — it pushes the work back to
-the user and produces vague answers. Ask about their life; let loop
-candidates fall out of it. If the user is terse, move on.
+Never ask "what do you want to track?" or "what should I help you
+with?" — those push the work back to them and yield vague answers.
 
-### Phase 2 — Propose domains and loops (this is the magic step)
+### Phase 2 — Propose ONE goal and just-enough domains (one message)
 
-Two moves, both grounded in Phase 1.
+Based on Phase 1, in **one message** propose:
 
-**Domains.** Propose 2–3 domain packs from the shipped set (check
-`domains/` to see what's available) that fit the user's life. Pick
-only what they actually touch. If nothing fits, say so — zero domains
-is a valid starting point.
+- **One** goal — your single best read of what loopany should help
+  this user with. Concrete and observable ("log X as it happens,
+  look back weekly, surface patterns about Y"), grounded in what
+  you saw, honest about the per-event cost (one short clause is
+  enough — "you'll need to drop a line when X happens").
+- An "or tell me if it's actually something else" escape hatch in
+  one sentence. No A/B/C menu unless the user pushes back.
+- Don't propose a domain yet. Domains are agent-extracted from real
+  usage — there's no pre-shipped pool to pick from. Just record
+  artifacts under the goal; if a separable scope shows up later,
+  `monthly-review.md` will catch it as structural drift and you'll
+  propose the domain *then*.
 
-**Loops.** Propose 2–3 candidate long-term goals — each a concrete
-thing loopany could help record, look back on, and iterate. Echo their
-own words. Be honest about the per-event cost.
+If the user says "yes" / "ok" / nods, go to Phase 3. If they push
+back, *then* offer 2 alternatives in one message and ask which.
 
-Each candidate must be:
+### Phase 3 — Lock and backfill (silent, then one summary message)
 
-- Concrete and observable — "log X as it happens, look back weekly,
-  surface patterns about Y," not "help me be more productive."
-- Grounded in what you saw.
-- Honest about what the user has to do for it to work.
+Once they've agreed:
 
-Present both lists with an "or something else entirely" escape hatch.
-If they pick one goal, refine it to a single sentence. If they want
-all of them, gently pick one to start; the rest can become goals
-later.
+1. Create `prs-self` for the user (with their name, email,
+   addressable handle).
+2. Create the `goal` artifact, `status: active`. No `domain` field
+   yet — domains get extracted later, not chosen now.
+3. **Backfill silently from what you read in Phase 1.** Do not show
+   the user a numbered list and ask "is this the right 7?" — that's
+   a needless review tax. Apply judgment:
+   - Past frictions / recurring issues → `signal`
+   - Past decisions or completed work that informs the goal →
+     `task` with `status: done` + `## Outcome`
+   - Mid-flight work → `task` with `status: running` + a near-term
+     `check_at`
+   - When unsure, write a `note` — always safe.
+   - Use `[backfill]` title prefix on tasks.
+   - Append a `## Backfill — YYYY-MM-DD` section to the goal
+     summarizing what got pulled in.
+4. Mention any items only via the kind's skill (relations,
+   `--mentions`) — see [[./skills/conventions/relations.md]].
 
-### Phase 3 — Confirm and materialize
+Then in **one** short user-facing message, summarize in plain
+language: "I've set up [the goal in their words]. I pulled in N
+things from your [Obsidian / notes / etc.] so day-1 isn't blank —
+mostly past frictions and a couple of in-flight items. If anything
+looks wrong, tell me." No IDs, no kinds, no statuses.
 
-Once they've agreed on the loop to start with:
+If the user has **no** knowledge sources, skip backfill — just say
+"starting blank from here."
 
-1. Read the goal back as a single sentence and ask "lock this in?"
-2. Enable the agreed domains.
-3. Create `prs-self` for the user.
-4. Create the `goal` artifact, active, mapped to the best-fit domain.
-5. Optionally seed 2–4 recurring people as `person` artifacts.
+### Phase 4 — Hand off (one message)
 
-### Phase 4 — Backfill from knowledge sources
+Tell the user, plainly, what they can now ask for. Suggest one
+concrete way to see what just got built:
 
-If the user has knowledge sources, propose a small backfill — a
-workspace that starts with relevant history is immediately more useful
-than an empty one. Skip if there's nothing to pull from.
+> Run `loopany factory` in another terminal whenever you want a
+> visual map of what's in here. (Plain CLI: `loopany factory`,
+> opens a local view.)
 
-Use judgment, not a recipe:
+Then, in the same message, add a one-line cadence note:
 
-- Skim what you already read for items that serve the goal: past
-  decisions, recurring people, open questions, in-flight work, known
-  frictions.
-- Propose a handful of specific items, each mapped to the kind that
-  fits. When unsure, default to `note` — always safe.
-- On confirmation, bulk-create. Mark backfilled tasks with a
-  `[backfill]` title prefix. Only `--mentions` the goal when the item
-  plausibly informs how the goal is pursued or evaluated.
-- Append a `## Backfill — YYYY-MM-DD` section to the goal so "known on
-  day 1" stays distinguishable from "learned afterward."
+> I'll check in at the start of each day on what's due, propose a
+> sweep + reflect at week's end, and surface goal-drift around
+> month's end. You can also just say "what's due today" or "let's
+> reflect" any time.
 
-### Phase 5 — Confirm complete
+That's it. End the message. Future requests dispatch through
+[[./skills/RESOLVER.md]].
 
-Tell the user onboarding is done and what they can now ask loopany to
-do: log events against the goal, recap what you've picked up on a
-topic, start another loop, redo onboarding when things change.
+## Cron — keep it out of onboarding
+
+**Do not** ask the user to choose between scheduling mechanisms,
+durable vs session-scoped, or whether to register cron jobs. That is a
+host-quality decision, and on most coding-CLI hosts the host's cron is
+unreliable enough that the right default is **don't register, prompt
+at session boundaries** (see [[./INSTALL_FOR_AGENTS.md#step-4]]).
+
+The user-facing line is the single sentence in Phase 4 about when
+you'll check in. If you find yourself saying "would you like me to
+register a cron job for…" *during onboarding*, stop. The only
+exception is an agent platform with truly durable scheduling
+(Hermes, OpenClaw, …) — and even there, you register silently and
+mention the cadence in plain English, not the registration.
 
 ## When to re-run onboarding
 
-Triggers: user asks to reset; the active goal no longer matches what
-they're actually doing; major life event (new job, pivot).
+If the user says "redo onboarding" / "reset the goal," or the active
+goal no longer matches recent work:
 
 Don't delete the old goal. Flip it to `superseded` (with a reason),
-create the new one, and link them with a `supersedes` reference. That
-keeps retired loops queryable.
+create the new one, link them with a `supersedes` reference. Retired
+loops stay queryable.

@@ -6,7 +6,7 @@
   <title>loopany — factory</title>
   <style>
     :root {
-      /* Aligned with tenant-web dark theme (Crewlet).
+      /* Dark theme.
          Core principles:
          - near-black page bg (#0b0b0b), elevated surfaces at #1d1d1d
          - text as white-alpha steps (87 / 57 / 40)
@@ -66,19 +66,20 @@
       text-align: center;
     }
 
-    /* HUD — floating panel at top-center, appears when player is near a building */
+    /* HUD — floating detail panel docked in the top-right corner. Shown
+       when the player is near a card, or a card / edge is selected. */
     #hud {
       position: fixed;
-      top: 60px;
-      left: 50%;
-      transform: translateX(-50%) translateY(-10px);
-      width: min(820px, 84vw);
+      top: 12px;
+      right: 12px;
+      transform: translateY(-8px);
+      width: min(560px, 44vw);
       background: rgba(29, 29, 29, 0.94);
       border: 1px solid var(--line);
       border-left: 6px solid var(--muted);
-      padding: 20px 28px;
-      font-size: 15px;
-      line-height: 1.55;
+      padding: 16px 20px;
+      font-size: 14px;
+      line-height: 1.5;
       opacity: 0;
       pointer-events: none;
       z-index: 5;
@@ -87,7 +88,7 @@
     }
     #hud.visible {
       opacity: 1;
-      transform: translateX(-50%) translateY(0);
+      transform: translateY(0);
     }
     #hud .title {
       font-size: 22px;
@@ -201,6 +202,122 @@
     }
     #toast.visible { transform: translateX(-50%) translateY(0); }
     #toast.err { border-color: var(--err); color: var(--err); }
+
+    /* First-run keybinding hint — fades on first move or after a few seconds */
+    #shortcut-hint {
+      position: fixed;
+      bottom: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(29, 29, 29, 0.88);
+      border: 1px solid var(--line);
+      padding: 6px 12px;
+      font-size: 11px;
+      color: var(--muted);
+      letter-spacing: 0.4px;
+      z-index: 5;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.4s ease;
+    }
+    #shortcut-hint.visible { opacity: 1; }
+    #shortcut-hint kbd {
+      font-family: inherit;
+      font-size: 10px;
+      color: var(--fg);
+      background: rgba(255, 255, 255, 0.07);
+      border: 1px solid var(--line);
+      padding: 1px 5px;
+      margin: 0 2px;
+      border-radius: 2px;
+    }
+
+    /* Full shortcut reference — toggled with `?`. */
+    #shortcut-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.72);
+      backdrop-filter: blur(3px);
+      -webkit-backdrop-filter: blur(3px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 30;
+    }
+    #shortcut-overlay.visible { display: flex; }
+    .shortcut-panel {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      padding: 24px 28px 26px;
+      min-width: 480px;
+      max-width: min(760px, 92vw);
+      font-size: 12px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+    }
+    .shortcut-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 24px;
+      margin-bottom: 18px;
+      padding-bottom: 12px;
+      border-bottom: 1px dashed var(--line);
+    }
+    .shortcut-title {
+      font-size: 15px;
+      font-weight: 500;
+      color: var(--fg);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+    .shortcut-close {
+      font-size: 11px;
+      color: var(--muted);
+      letter-spacing: 0.5px;
+    }
+    .shortcut-cols {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 28px;
+    }
+    .shortcut-group {
+      color: var(--accent);
+      font-size: 10px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin: 4px 0 10px;
+    }
+    .shortcut-panel dl {
+      margin: 0 0 18px;
+      display: grid;
+      grid-template-columns: max-content 1fr;
+      column-gap: 16px;
+      row-gap: 7px;
+      align-items: center;
+    }
+    .shortcut-panel dl:last-child { margin-bottom: 0; }
+    .shortcut-panel dt {
+      color: var(--fg);
+      display: flex;
+      gap: 3px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .shortcut-panel dd {
+      margin: 0;
+      color: var(--muted);
+    }
+    .shortcut-panel kbd {
+      font-family: inherit;
+      font-size: 10px;
+      color: var(--fg);
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid var(--line);
+      padding: 2px 6px;
+      border-radius: 2px;
+      min-width: 18px;
+      text-align: center;
+    }
   </style>
 </head>
 <body>
@@ -237,10 +354,60 @@
   </div>
 
 
+  <div id="shortcut-hint">
+    <kbd>WASD</kbd> move
+    · <kbd>E</kbd> open
+    · <kbd>C</kbd> recenter
+    · <kbd>?</kbd> all shortcuts
+  </div>
+
+  <div id="shortcut-overlay" aria-hidden="true">
+    <div class="shortcut-panel" role="dialog" aria-label="Keyboard shortcuts">
+      <div class="shortcut-head">
+        <div class="shortcut-title">Shortcuts</div>
+        <div class="shortcut-close"><kbd>?</kbd> or <kbd>Esc</kbd> to close</div>
+      </div>
+      <div class="shortcut-cols">
+        <div class="shortcut-col">
+          <div class="shortcut-group">Move</div>
+          <dl>
+            <dt><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></dt><dd>Walk the factory</dd>
+            <dt><kbd>←</kbd><kbd>↑</kbd><kbd>↓</kbd><kbd>→</kbd></dt><dd>Walk (arrow keys)</dd>
+          </dl>
+
+          <div class="shortcut-group">Camera</div>
+          <dl>
+            <dt><kbd>C</kbd></dt><dd>Snap to player (1× zoom)</dd>
+            <dt><kbd>+</kbd> / <kbd>-</kbd></dt><dd>Zoom in / out</dd>
+            <dt><kbd>0</kbd></dt><dd>Reset zoom</dd>
+            <dt>Scroll</dt><dd>Zoom (wheel / two-finger)</dd>
+            <dt><kbd>Shift</kbd> + scroll</dt><dd>Pan</dd>
+            <dt>Drag</dt><dd>Pan (mouse / trackpad)</dd>
+          </dl>
+        </div>
+        <div class="shortcut-col">
+          <div class="shortcut-group">Selection</div>
+          <dl>
+            <dt>Click card</dt><dd>Select artifact</dd>
+            <dt>Click belt</dt><dd>Select reference</dd>
+            <dt>Click empty</dt><dd>Walk player there</dd>
+            <dt><kbd>Esc</kbd></dt><dd>Clear selection</dd>
+          </dl>
+
+          <div class="shortcut-group">Actions</div>
+          <dl>
+            <dt><kbd>E</kbd> / <kbd>Space</kbd> / <kbd>⏎</kbd></dt><dd>Open in editor</dd>
+            <dt><kbd>R</kbd></dt><dd>Reload graph</dd>
+            <dt><kbd>?</kbd></dt><dd>This panel</dd>
+          </dl>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div id="toast"></div>
 
   <script src="https://unpkg.com/kaplay@3001.0.18/dist/kaplay.js"></script>
-  <script src="https://unpkg.com/dagre@0.8.5/dist/dagre.min.js"></script>
   <script>
     // ==========================================================
     // loopany factory — walkable pixel workspace
@@ -255,14 +422,8 @@
     // Safety cap for very long titles — card dimensions + wrap do most of the work.
     const TITLE_CAP = 110;
 
-    // Dagre tuning
-    const DAGRE_NODESEP = 70;
-    const DAGRE_EDGESEP = 30;
-    const DAGRE_RANKSEP = 160;  // vertical headroom for channel stacking
-
-    // Semantic layering order, top → bottom. Edges are oriented so dagre
-    // sees top-down flow, and synthetic edges between adjacent present
-    // kinds guarantee rank separation (signals NEVER share a row with tasks).
+    // Semantic kind order — used to stack artifacts inside a date column,
+    // and as a stable tiebreaker for the top goal row.
     const KIND_FLOW_RANK = {
       goal: 0,
       signal: 1,
@@ -271,6 +432,7 @@
       learning: 4,
       'skill-proposal': 5,
       person: 6,
+      note: 7,
     };
     const UNKNOWN_KIND_RANK = 50;
 
@@ -280,9 +442,9 @@
     const DOMAIN_PAD_BOT = 28;
 
     // ─── Palette: kind / status / relation ──────────────────────────
-    // Hex values pulled from the Crewlet Design handoff bundle
-    // (loopany/project/Loopany Factory.html) — specifically the
-    // --k-* / --s-* / --r-* tokens. Hex → RGB ints for Kaplay.
+    // Hex values pulled from the design handoff bundle —
+    // specifically the --k-* / --s-* / --r-* tokens.
+    // Hex → RGB ints for Kaplay.
     const KIND_COLOR = {
       goal:             [242, 193, 78],    // #F2C14E amber
       signal:           [126, 200, 255],   // #7EC8FF powder blue
@@ -291,6 +453,7 @@
       learning:         [122, 229, 162],   // #7AE5A2 mint
       'skill-proposal': [255, 156, 178],   // #FF9CB2 pink
       person:           [230, 236, 243],   // #E6ECF3 paper
+      note:             [213, 200, 168],   // #D5C8A8 manila
     };
     const KIND_COLOR_FALLBACK = [200, 200, 200];
 
@@ -303,6 +466,7 @@
       learning:         'LRN',
       'skill-proposal': 'SPR',
       person:           'PRS',
+      note:             'NTE',
     };
 
     // Pixel-art icons, 16×16, color baked per kind. Rendered as Kaplay
@@ -315,13 +479,14 @@
       learning: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="#7AE5A2" shape-rendering="crispEdges"><rect x="6" y="2" width="4" height="1"/><rect x="5" y="3" width="6" height="1"/><rect x="4" y="4" width="8" height="5"/><rect x="5" y="9" width="6" height="1"/><rect x="6" y="10" width="4" height="2"/><rect x="6" y="13" width="4" height="1"/></svg>`,
       'skill-proposal': `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="#FF9CB2" shape-rendering="crispEdges"><rect x="4" y="2" width="2" height="2"/><rect x="10" y="2" width="2" height="2"/><rect x="5" y="4" width="2" height="2"/><rect x="9" y="4" width="2" height="2"/><rect x="6" y="6" width="4" height="4"/><rect x="5" y="10" width="2" height="2"/><rect x="9" y="10" width="2" height="2"/><rect x="4" y="12" width="2" height="2"/><rect x="10" y="12" width="2" height="2"/></svg>`,
       person: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="#E6ECF3" shape-rendering="crispEdges"><rect x="6" y="3" width="4" height="4"/><rect x="4" y="8" width="8" height="5"/></svg>`,
+      note: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="#D5C8A8" shape-rendering="crispEdges"><rect x="2" y="3" width="12" height="1"/><rect x="2" y="12" width="12" height="1"/><rect x="2" y="4" width="1" height="8"/><rect x="13" y="4" width="1" height="8"/><rect x="4" y="6" width="8" height="1"/><rect x="4" y="8" width="6" height="1"/><rect x="4" y="10" width="7" height="1"/></svg>`,
     };
 
     // Emoji fallback for HUD (DOM, not Kaplay) — keeps the text side
     // lightweight without loading <img>s.
     const KIND_ICON_EMOJI = {
       goal: '🎯', signal: '📡', task: '⚙', brief: '📄',
-      learning: '💡', 'skill-proposal': '🧬', person: '👤',
+      learning: '💡', 'skill-proposal': '🧬', person: '👤', note: '📝',
     };
 
     const STATUS_COLOR = {
@@ -370,6 +535,81 @@
 
       populateInfoBar(graph);
       initGame(graph);
+      initShortcutOverlay();
+      maybeShowShortcutHint();
+    }
+
+    // Full-reference panel toggled by `?`. Listens at the window level so
+    // shift+/ works regardless of Kaplay's key-mapping, and intercepts Esc
+    // in the capture phase when open so it closes the panel instead of
+    // falling through to the in-game selection-clear handler.
+    function initShortcutOverlay() {
+      const overlay = document.getElementById('shortcut-overlay');
+      if (!overlay) return;
+      const isOpen = () => overlay.classList.contains('visible');
+      const open = () => {
+        overlay.classList.add('visible');
+        overlay.setAttribute('aria-hidden', 'false');
+        dismissShortcutHint();
+      };
+      const close = () => {
+        overlay.classList.remove('visible');
+        overlay.setAttribute('aria-hidden', 'true');
+      };
+
+      window.addEventListener('keydown', (e) => {
+        if (e.key === '?') {
+          e.preventDefault();
+          isOpen() ? close() : open();
+          return;
+        }
+        if (e.key === 'Escape' && isOpen()) {
+          e.preventDefault();
+          e.stopPropagation();
+          close();
+        }
+      }, true);
+
+      overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) close();
+      });
+    }
+
+    // Minimal first-run keybinding hint. Fades on first movement key or
+    // after a short timeout; the "seen" flag in localStorage keeps it from
+    // re-appearing on subsequent visits.
+    const HINT_STORAGE_KEY = 'loopany.factory.shortcutHint.seen';
+    const HINT_DISMISS_MS = 8000;
+    const HINT_MOVE_KEYS = new Set([
+      'w', 'a', 's', 'd',
+      'arrowup', 'arrowdown', 'arrowleft', 'arrowright',
+    ]);
+
+    let _hintState = null;  // { el, timer, onKey } while the first-run hint is live
+
+    function maybeShowShortcutHint() {
+      if (localStorage.getItem(HINT_STORAGE_KEY)) return;
+      const el = document.getElementById('shortcut-hint');
+      if (!el) return;
+      requestAnimationFrame(() => el.classList.add('visible'));
+
+      const onKey = (e) => {
+        if (HINT_MOVE_KEYS.has(e.key.toLowerCase?.() ?? '')) dismissShortcutHint();
+      };
+      window.addEventListener('keydown', onKey);
+      const timer = setTimeout(dismissShortcutHint, HINT_DISMISS_MS);
+      _hintState = { el, timer, onKey };
+    }
+
+    function dismissShortcutHint() {
+      if (!_hintState) return;
+      const { el, timer, onKey } = _hintState;
+      _hintState = null;
+      el.classList.remove('visible');
+      localStorage.setItem(HINT_STORAGE_KEY, '1');
+      window.removeEventListener('keydown', onKey);
+      clearTimeout(timer);
+      setTimeout(() => { el.style.display = 'none'; }, 400);
     }
 
     async function fetchGraph() {
@@ -402,95 +642,164 @@
     }
 
     // ==========================================================
-    // Layout — dagre layered auto-layout, orthogonal elbow edges
+    // Layout — date-column grid
     // ==========================================================
     //
-    // Dagre computes a hierarchical layout from the edge DAG:
-    //   - assigns each node to a rank (Y-layer)
-    //   - orders within each rank to minimize edge crossings
-    //   - spaces out so orthogonal elbows fit in the rank gap
+    // Three regions on the world:
+    //   · Top strip   — every `goal` on one horizontal row
+    //   · Left strip  — entity kinds (person, and similar non-temporal
+    //                   kinds) stacked top-down
+    //   · Date grid   — everything else: one column per calendar day,
+    //                   cards within a column sorted by kind rank then
+    //                   createdAt
     //
-    // We do NOT use graph.lanes anymore — the server still sends it but
-    // dagre derives structure from edges directly.
+    // createdAt drives the x-axis: each distinct YYYY-MM-DD becomes a
+    // column, left (oldest) to right (newest). Within a column, cards
+    // stack vertically in kind order — signal, task, brief, learning,
+    // skill-proposal, note — so a day's "flow" reads top-down inside
+    // the column and oldest→newest across columns.
+    const TOP_ROW_KINDS = new Set(['goal']);
+    const LEFT_COL_KINDS = new Set(['person']);
+    const GRID_COL_GAP = 96;      // gap between adjacent date blocks
+    const GRID_ROW_GAP = 64;
+    const GRID_MARGIN = 160;
+    const INTRA_COL_GAP = 44;     // gap between the two columns inside one date
+    // Extra breathing room between the non-temporal strips (top goals,
+    // left entities) and the date grid. Larger than a normal block gap
+    // so the user can clearly tell "these are *outside* the timeline".
+    const STRIP_EXTRA_GAP = 96;
+
     function layout(graph) {
       const domainColorOf = assignDomainColors(graph.domains);
       const positions = new Map();
 
       if (graph.nodes.length === 0) {
-        return { positions, domainColorOf, regions: [], worldW: 1200, worldH: 800 };
+        return {
+          positions, domainColorOf, regions: [], dateHeaders: [],
+          worldW: 1200, worldH: 800,
+        };
       }
 
-      const g = new dagre.graphlib.Graph({ multigraph: true });
-      g.setGraph({
-        rankdir: 'TB',
-        nodesep: DAGRE_NODESEP,
-        edgesep: DAGRE_EDGESEP,
-        ranksep: DAGRE_RANKSEP,
-        marginx: 140,
-        marginy: 140,
-      });
-      g.setDefaultEdgeLabel(() => ({}));
-
-      const nodeById = new Map(graph.nodes.map((n) => [n.id, n]));
-      const rankOf = (id) => KIND_FLOW_RANK[nodeById.get(id)?.kind] ?? UNKNOWN_KIND_RANK;
-
-      for (const node of graph.nodes) {
-        g.setNode(node.id, { width: CARD_W, height: CARD_H });
-      }
-
-      // Orient real edges so dagre always sees top-down semantic flow.
-      // A real edge like signal → goal (signal mentioning a goal) runs
-      // "upward" in our semantic rank order — we reverse it for layout
-      // purposes so dagre places goal above signal. Rendering still uses
-      // the ORIGINAL edge direction (flow of the packet along the belt).
-      let edgeKey = 0;
-      for (const edge of graph.edges) {
-        const [u, v] = rankOf(edge.from) <= rankOf(edge.to)
-          ? [edge.from, edge.to]
-          : [edge.to, edge.from];
-        g.setEdge(u, v, {}, `e${edgeKey++}`);
-      }
-
-      // Synthetic edges between adjacent present kinds.
-      // `minlen: 1` forces at least one rank of separation — signals and
-      // tasks can NEVER share a row after this. Weight 0 so these edges
-      // don't bias the x-positioning of their endpoints.
-      const byKind = new Map();
+      // Partition
+      const goals = [];
+      const entities = [];
+      const byDate = new Map();  // 'YYYY-MM-DD' → [...nodes]
       for (const n of graph.nodes) {
-        if (!byKind.has(n.kind)) byKind.set(n.kind, []);
-        byKind.get(n.kind).push(n);
-      }
-      const presentKinds = Object.keys(KIND_FLOW_RANK).filter((k) => byKind.has(k));
-      for (let i = 0; i < presentKinds.length - 1; i++) {
-        const high = byKind.get(presentKinds[i])[0];
-        const low = byKind.get(presentKinds[i + 1])[0];
-        g.setEdge(high.id, low.id, { minlen: 1, weight: 0 }, `_synth_${i}`);
+        if (TOP_ROW_KINDS.has(n.kind)) goals.push(n);
+        else if (LEFT_COL_KINDS.has(n.kind)) entities.push(n);
+        else {
+          const d = (n.createdAt || '').slice(0, 10) || 'undated';
+          let list = byDate.get(d);
+          if (!list) { list = []; byDate.set(d, list); }
+          list.push(n);
+        }
       }
 
-      dagre.layout(g);
-
-      // Border = kind color (semantic). Domain is conveyed by the region
-      // block behind the cards, not their individual borders.
-      for (const node of graph.nodes) {
-        const n = g.node(node.id);
-        if (!n) continue;
-        positions.set(node.id, {
-          x: n.x - CARD_W / 2,
-          y: n.y - CARD_H / 2,
-          borderColor: KIND_COLOR[node.kind] ?? KIND_COLOR_FALLBACK,
+      const byCreated = (a, b) => (a.createdAt || '').localeCompare(b.createdAt || '');
+      goals.sort(byCreated);
+      entities.sort(byCreated);
+      const dates = [...byDate.keys()].sort();
+      for (const d of dates) {
+        byDate.get(d).sort((a, b) => {
+          const ra = KIND_FLOW_RANK[a.kind] ?? UNKNOWN_KIND_RANK;
+          const rb = KIND_FLOW_RANK[b.kind] ?? UNKNOWN_KIND_RANK;
+          return ra !== rb ? ra - rb : byCreated(a, b);
         });
       }
 
+      const leftX = GRID_MARGIN;
+      const leftStripW = entities.length > 0
+        ? CARD_W + GRID_COL_GAP + STRIP_EXTRA_GAP
+        : 0;
+      const gridX = GRID_MARGIN + leftStripW;
+
+      const topY = GRID_MARGIN;
+      const topStripH = goals.length > 0
+        ? CARD_H + GRID_ROW_GAP + STRIP_EXTRA_GAP
+        : 0;
+      const gridY = GRID_MARGIN + topStripH;
+
+      // One date block = two card columns with INTRA_COL_GAP between them,
+      // plus GRID_COL_GAP to the next block.
+      const goalPitch = CARD_W + GRID_COL_GAP;
+      const blockWidth = 2 * CARD_W + INTRA_COL_GAP;
+      const blockPitch = blockWidth + GRID_COL_GAP;
+      const rowPitch = CARD_H + GRID_ROW_GAP;
+
+      const border = (k) => KIND_COLOR[k] ?? KIND_COLOR_FALLBACK;
+
+      // Goals across the top — one card wide each, aligned over the first
+      // date block so the topmost row reads as "what we're aiming at"
+      // above "what we did on each day".
+      goals.forEach((n, i) => {
+        positions.set(n.id, {
+          x: gridX + i * goalPitch,
+          y: topY,
+          borderColor: border(n.kind),
+          blockKey: null,
+        });
+      });
+
+      // Entities down the left.
+      entities.forEach((n, i) => {
+        positions.set(n.id, {
+          x: leftX,
+          y: gridY + i * rowPitch,
+          borderColor: border(n.kind),
+          blockKey: null,
+        });
+      });
+
+      // Date blocks (2 columns each). Items in a day are already sorted
+      // by (kind rank, createdAt) — the first half fills the left column
+      // top-down, the second half fills the right column. That keeps
+      // same-kind artifacts grouped together and lets inter-column
+      // edges (e.g. task → brief) route cleanly through the inter-col
+      // gap without punching through neighboring cards.
+      const dateHeaders = [];
+      let maxBottom = gridY;
+      dates.forEach((d, colIdx) => {
+        const xBlock = gridX + colIdx * blockPitch;
+        const xLeft = xBlock;
+        const xRight = xBlock + CARD_W + INTRA_COL_GAP;
+        dateHeaders.push({
+          x: xBlock,
+          y: gridY - 30,
+          label: d === 'undated' ? '—' : d,
+        });
+        const items = byDate.get(d);
+        const half = Math.ceil(items.length / 2);
+        const blockKey = 'd:' + d;
+        items.forEach((n, i) => {
+          const inLeftCol = i < half;
+          const rowIdx = inLeftCol ? i : i - half;
+          const y = gridY + rowIdx * rowPitch;
+          positions.set(n.id, {
+            x: inLeftCol ? xLeft : xRight,
+            y,
+            borderColor: border(n.kind),
+            blockKey,
+          });
+          if (y + CARD_H > maxBottom) maxBottom = y + CARD_H;
+        });
+      });
+
+      const goalsRight = goals.length > 0 ? gridX + goals.length * goalPitch : gridX;
+      const datesRight = dates.length > 0
+        ? gridX + (dates.length - 1) * blockPitch + blockWidth
+        : gridX;
+      const contentRight = Math.max(goalsRight, datesRight);
+      const entitiesBottom = entities.length > 0
+        ? gridY + entities.length * rowPitch
+        : gridY;
+      const contentBottom = Math.max(entitiesBottom, maxBottom);
+
+      const worldW = contentRight + GRID_MARGIN;
+      const worldH = contentBottom + GRID_MARGIN;
+
       const regions = computeDomainRegions(graph, positions, domainColorOf);
 
-      const info = g.graph();
-      return {
-        positions,
-        domainColorOf,
-        regions,
-        worldW: (info.width || 1200) + 280,
-        worldH: (info.height || 800) + 280,
-      };
+      return { positions, domainColorOf, regions, dateHeaders, worldW, worldH };
     }
 
     // Axis-aligned bounding box of every domain's cards, padded for a
@@ -548,12 +857,22 @@
     //      edge's orthogonal path sits on its channel, so no two
     //      horizontals share a y-line.
     //
-    // Same-rank fallback (edges between cards at the same y) uses a
-    // midX side-elbow — rare with dagre TB layout.
+    // Same-row fallback (edges between cards at the same y — e.g. two
+    // artifacts within the same date column) uses a midX side-elbow.
     function routeAllEdges(graph, positions) {
       const edges = graph.edges.filter(
         (e) => positions.has(e.from) && positions.has(e.to),
       );
+
+      // Edges whose endpoints live in the same "block" (same date column
+      // pair, in the current layout) are always routed with a side elbow.
+      // Running them through top/bottom-ported channels tends to punch
+      // the horizontal leg straight through a neighbour's card.
+      const sameBlock = (e) => {
+        const pa = positions.get(e.from);
+        const pb = positions.get(e.to);
+        return pa && pb && pa.blockKey && pa.blockKey === pb.blockKey;
+      };
 
       // Phase 1: port distribution --------------------------------------------
       const outByNode = new Map(); // nodeId → edges leaving
@@ -570,6 +889,7 @@
         const pos = positions.get(nodeId);
         const down = [], up = [], side = [];
         for (const e of outs) {
+          if (sameBlock(e)) { side.push(e); continue; }
           const other = positions.get(e.to);
           if (other.y > pos.y + 2) down.push(e);
           else if (other.y < pos.y - 2) up.push(e);
@@ -587,6 +907,7 @@
         const pos = positions.get(nodeId);
         const fromAbove = [], fromBelow = [], side = [];
         for (const e of ins) {
+          if (sameBlock(e)) { side.push(e); continue; }
           const other = positions.get(e.from);
           if (other.y < pos.y - 2) fromAbove.push(e);
           else if (other.y > pos.y + 2) fromBelow.push(e);
@@ -602,6 +923,7 @@
       // Phase 2: channel assignment per rank-gap ------------------------------
       const gapGroups = new Map();
       for (const e of edges) {
+        if (sameBlock(e)) continue;  // handled by side elbow
         const a = positions.get(e.from);
         const b = positions.get(e.to);
         if (Math.abs(a.y - b.y) < 10) continue;
@@ -665,6 +987,20 @@
     function buildSideElbow(from, to) {
       const fromCy = from.y + CARD_H / 2;
       const toCy = to.y + CARD_H / 2;
+
+      // Same-column case (e.g. two artifacts in the left column of the
+      // same date block). A midX elbow between the two endpoints would
+      // run straight down the middle of the column through every card
+      // in between. Route out the right side into the inter-column gap
+      // instead — a clean vertical in the gutter, bracketed by short
+      // horizontal legs.
+      if (Math.abs(from.x - to.x) < 1) {
+        const sideX = from.x + CARD_W + INTRA_COL_GAP / 2;
+        const p1 = { x: from.x + CARD_W, y: fromCy };
+        const p4 = { x: to.x + CARD_W, y: toCy };
+        return [p1, { x: sideX, y: fromCy }, { x: sideX, y: toCy }, p4];
+      }
+
       const leftToRight = from.x < to.x;
       const p1 = { x: leftToRight ? from.x + CARD_W : from.x, y: fromCy };
       const p4 = { x: leftToRight ? to.x : to.x + CARD_W, y: toCy };
@@ -710,7 +1046,7 @@
     // ==========================================================
     function initGame(graph) {
       const layoutData = layout(graph);
-      const { positions, worldW, worldH, regions } = layoutData;
+      const { positions, worldW, worldH, regions, dateHeaders } = layoutData;
       const world = { w: worldW, h: worldH };
 
       const k = kaplay({
@@ -724,8 +1060,8 @@
       });
       setGravity(0);
 
-      // Load the Crewlet avatar for the player.
-      loadSprite('crewlet', '/assets/crewlet.svg');
+      // Load the player avatar.
+      loadSprite('player', '/assets/player.svg');
 
       // Load kind icons from inline SVG data-URIs (baked color per kind).
       for (const [kind, svg] of Object.entries(KIND_ICON_SVG)) {
@@ -772,6 +1108,27 @@
         },
       ]);
 
+      // --- date column headers — above belts, below cards (z 0) ---
+      // Each temporal column is labeled with its YYYY-MM-DD at the top.
+      // Drawn in world space so they pan/zoom with the grid.
+      add([
+        z(0),
+        {
+          draw() {
+            for (const h of dateHeaders) {
+              drawText({
+                text: plain(h.label),
+                pos: vec2(h.x + 4, h.y),
+                size: 13,
+                color: rgb(180, 180, 180),
+                opacity: 0.85,
+                font: 'monospace',
+              });
+            }
+          },
+        },
+      ]);
+
       // --- edge layer — drawn BEHIND cards (z -1) ---
       const { paths: edgePaths } = routeAllEdges(graph, positions);
 
@@ -779,8 +1136,10 @@
         z(-1),
         {
           draw() {
+            const activeIds = collectActiveIds();
             // Belts
             for (const edge of graph.edges) {
+              if (!isEdgeVisible(edge, activeIds)) continue;
               const path = edgePaths.get(edge);
               if (!path) continue;
               const col = rgb(...(RELATION_COLOR[edge.relation] ?? RELATION_COLOR.mentions));
@@ -923,9 +1282,11 @@
       // diagonals without needing the physics system.
       const spawn = chooseSpawn(graph, positions, world);
       const player = add([
-        sprite('crewlet', { width: PLAYER_SIZE, height: PLAYER_SIZE }),
+        sprite('player', { width: PLAYER_SIZE, height: PLAYER_SIZE }),
         pos(spawn.x, spawn.y),
         anchor('center'),
+        rotate(0),
+        scale(1),
         z(10),
         'player',
       ]);
@@ -933,15 +1294,37 @@
       // Camera state. `following` means the camera tracks the player; it
       // auto-disengages the moment the user pans with trackpad/wheel, and
       // re-engages when they press `C`.
+      //
+      // Startup: follow-the-player (the default "C mode"), but scaled
+      // out enough that the player can see as much of the graph as the
+      // viewport allows. The player's position drives tx/ty each frame,
+      // so we only need scale + following here.
+      const CAM_SCALE_MIN = 0.3;
+      const CAM_SCALE_MAX = 3;
+      const fit = computeFitView(world);
       const cam = {
-        scale: 1,
+        scale: fit.scale,
         tx: spawn.x,
         ty: spawn.y,
         following: true,
       };
-      const CAM_SCALE_MIN = 0.3;
-      const CAM_SCALE_MAX = 3;
       setCamScale(cam.scale);
+
+      // Click-to-walk state machine. Three phases:
+      //   launch — crouch, then stretch upward, leaning toward the
+      //            target. Roughly the anticipation beat of a takeoff.
+      //   dash   — ease-out glide from lift-off position to the target.
+      //            Faster than WASD walking so it reads as a dash.
+      //   land   — unwind the lean and the stretch back to rest.
+      // Any WASD input cancels the whole sequence and resets the pose.
+      const LAUNCH_T = 0.14;
+      const LAND_T = 0.12;
+      const DASH_PEAK_SPEED = 2400;   // px/s, determines duration
+      const DASH_MIN_T = 0.18;
+      const LEAN_MAX = 24;            // degrees
+      let walkState = null;
+      const ease = (t) => 1 - Math.pow(1 - t, 3);
+      const mix = (a, b, t) => a + (b - a) * t;
 
       onUpdate(() => {
         let vx = 0, vy = 0;
@@ -950,9 +1333,72 @@
         if (isKeyDown('a') || isKeyDown('left')) vx -= 1;
         if (isKeyDown('d') || isKeyDown('right')) vx += 1;
         if (vx !== 0 || vy !== 0) {
+          walkState = null;  // manual input overrides auto-walk
+          cam.following = true;  // re-engage follow on any intentional walk
+          player.angle = 0;
+          player.scale = vec2(1, 1);
           const mag = Math.sqrt(vx * vx + vy * vy);
           player.pos.x += (vx / mag) * PLAYER_SPEED * dt();
           player.pos.y += (vy / mag) * PLAYER_SPEED * dt();
+        } else if (walkState) {
+          walkState.t += dt();
+          if (walkState.phase === 'launch') {
+            const k = Math.min(1, walkState.t / LAUNCH_T);
+            // First half: squash wide + short. Second half: rebound
+            // tall + narrow. Peaks at k=0.5 (most compressed).
+            let sx, sy;
+            if (k < 0.5) {
+              const q = k / 0.5;
+              sx = 1 + 0.14 * q;
+              sy = 1 - 0.22 * q;
+            } else {
+              const q = (k - 0.5) / 0.5;
+              sx = 1.14 - 0.30 * q;
+              sy = 0.78 + 0.44 * q;
+            }
+            player.scale = vec2(sx, sy);
+            player.angle = walkState.lean * ease(k);
+            if (k >= 1) {
+              walkState.phase = 'dash';
+              walkState.t = 0;
+              walkState.dashFrom = { x: player.pos.x, y: player.pos.y };
+              const remaining = Math.hypot(
+                walkState.target.x - player.pos.x,
+                walkState.target.y - player.pos.y,
+              );
+              walkState.dashDuration = Math.max(
+                DASH_MIN_T,
+                remaining / DASH_PEAK_SPEED,
+              );
+            }
+          } else if (walkState.phase === 'dash') {
+            const k = Math.min(1, walkState.t / walkState.dashDuration);
+            const e = ease(k);
+            player.pos.x = mix(walkState.dashFrom.x, walkState.target.x, e);
+            player.pos.y = mix(walkState.dashFrom.y, walkState.target.y, e);
+            // Hold the lean; stretch along the motion axis so the
+            // character reads as "moving fast this way".
+            const ax = Math.abs(walkState.nx), ay = Math.abs(walkState.ny);
+            player.angle = walkState.lean;
+            player.scale = vec2(1 + 0.12 * (ax - ay), 1 + 0.12 * (ay - ax));
+            if (k >= 1) {
+              walkState.phase = 'land';
+              walkState.t = 0;
+            }
+          } else {  // 'land'
+            const k = Math.min(1, walkState.t / LAND_T);
+            const e = ease(k);
+            const ax = Math.abs(walkState.nx), ay = Math.abs(walkState.ny);
+            const sX = 1 + 0.12 * (ax - ay);
+            const sY = 1 + 0.12 * (ay - ax);
+            player.angle = walkState.lean * (1 - e);
+            player.scale = vec2(mix(sX, 1, e), mix(sY, 1, e));
+            if (k >= 1) {
+              walkState = null;
+              player.angle = 0;
+              player.scale = vec2(1, 1);
+            }
+          }
         }
         // soft clamp to world
         player.pos.x = clamp(player.pos.x, -200, world.w + 200);
@@ -965,23 +1411,63 @@
         setCamPos(cam.tx, cam.ty);
       });
 
+      // Dance! When the cursor hovers the player, sway with a twirl
+      // every few beats. Energy eases in when hovered and back out when
+      // the cursor leaves, so stepping off doesn't snap the player back
+      // to a bolt-upright pose mid-spin.
+      let danceEnergy = 0;
+      onUpdate(() => {
+        // Mid-dash, the walk update owns both angle and scale — don't
+        // touch them here or we'll cancel the squash-and-stretch.
+        if (walkState) {
+          danceEnergy = 0;
+          return;
+        }
+        const mw = toWorld ? toWorld(mousePos()) : mousePos();
+        const r = PLAYER_SIZE / 2;
+        const hovered = Math.hypot(mw.x - player.pos.x, mw.y - player.pos.y) < r;
+        danceEnergy = hovered
+          ? Math.min(1, danceEnergy + dt() * 4)
+          : Math.max(0, danceEnergy - dt() * 3);
+
+        if (danceEnergy > 0.001) {
+          const t = time();
+          const cycle = (t % 3) / 3;          // 3-second loop
+          let angle;
+          if (cycle < 0.75) {
+            // sway: two full left-right cycles at ±22°
+            angle = Math.sin((cycle / 0.75) * Math.PI * 4) * 22;
+          } else {
+            // spin: one clean 360 during the last quarter of the loop
+            angle = ((cycle - 0.75) / 0.25) * 360;
+          }
+          player.angle = angle * danceEnergy;
+          const pulse = 1 + Math.sin(t * 14) * 0.08 * danceEnergy;
+          player.scale = vec2(pulse);
+        } else {
+          player.angle = 0;
+          player.scale = vec2(1);
+        }
+      });
+
       // Trackpad + mouse wheel handling ------------------------------------
-      // Mac trackpad pinch → `wheel` event with `ctrlKey === true`.
-      // Two-finger scroll → wheel with deltaX/deltaY, no ctrlKey.
-      // Desktop mouse wheel → just deltaY; we zoom when modifier held.
+      // Default gesture is zoom: mouse wheel, two-finger trackpad scroll,
+      // and Mac pinch (which sends wheel + ctrlKey) all zoom in/out. Hold
+      // Shift to pan with the wheel instead; drag-to-pan stays available
+      // for regular navigation.
       const canvas = document.querySelector('canvas');
       if (canvas) {
         canvas.addEventListener('wheel', (e) => {
           e.preventDefault();
-          if (e.ctrlKey || e.metaKey) {
-            const factor = Math.exp(-e.deltaY * 0.01);
-            cam.scale = clamp(cam.scale * factor, CAM_SCALE_MIN, CAM_SCALE_MAX);
-            setCamScale(cam.scale);
-          } else {
+          if (e.shiftKey) {
             cam.following = false;
             cam.tx += e.deltaX / cam.scale;
             cam.ty += e.deltaY / cam.scale;
+            return;
           }
+          const factor = Math.exp(-e.deltaY * 0.01);
+          cam.scale = clamp(cam.scale * factor, CAM_SCALE_MIN, CAM_SCALE_MAX);
+          setCamScale(cam.scale);
         }, { passive: false });
       }
 
@@ -997,10 +1483,15 @@
         cam.scale = 1;
         setCamScale(cam.scale);
       });
+      // C: re-enter "player mode" — follow the player at normal zoom.
+      // Pairs with the overview-on-startup default: hitting C is how the
+      // user commits to walking around instead of surveying the graph.
       onKeyPress('c', () => {
         cam.following = true;
         cam.tx = player.pos.x;
         cam.ty = player.pos.y;
+        cam.scale = 1;
+        setCamScale(cam.scale);
       });
 
       // --- approach / focus / edge-hover / selection ---
@@ -1012,6 +1503,32 @@
       let hoveredEdge = null;   // edge under the cursor
       const hud = document.getElementById('hud');
       const nodeById = new Map(graph.nodes.map((n) => [n.id, n]));
+
+      // Edges terminating at a goal are hidden by default. Goals tend to
+      // accrete many references (caused-by, mentions, cites) and drawing
+      // the whole fan-in at once buries the foreground flow. They become
+      // visible once either endpoint is "active" — the player is near it,
+      // or it's been clicked. Visibility is recomputed each frame from the
+      // latest focused / selected state.
+      function collectActiveIds() {
+        const ids = new Set();
+        if (focused) ids.add(focused.node.id);
+        if (selected) {
+          if (isEdgeSelection(selected)) {
+            ids.add(selected.from);
+            ids.add(selected.to);
+          } else {
+            ids.add(selected.node.id);
+          }
+        }
+        return ids;
+      }
+
+      function isEdgeVisible(edge, activeIds) {
+        const toNode = nodeById.get(edge.to);
+        if (toNode?.kind !== 'goal') return true;
+        return activeIds.has(edge.from) || activeIds.has(edge.to);
+      }
 
       onUpdate(() => {
         // Player-proximity building
@@ -1035,8 +1552,11 @@
         focused = best;
 
         // Mouse-hovered edge — convert to world space in case of camera offset.
+        // Hidden edges (e.g. default-hidden goal incomings) are not hoverable.
         const mw = toWorld ? toWorld(mousePos()) : mousePos();
-        hoveredEdge = findHoveredEdge(mw, graph.edges, edgePaths, 10);
+        const activeIds = collectActiveIds();
+        const hoverable = graph.edges.filter((e) => isEdgeVisible(e, activeIds));
+        hoveredEdge = findHoveredEdge(mw, hoverable, edgePaths, 10);
 
         // Render priority: mouse-hovered edge > selection > player-focused > none.
         // `selected` may be either a building entity (has `.node`) or an
@@ -1063,10 +1583,17 @@
         }
       });
 
-      // Click = select. Hit-test buildings first (they're solid), fall
-      // through to edges if no card is under the cursor. Empty-space
-      // click clears the selection.
-      onMousePress('left', () => {
+      // Click / drag on the canvas. A short press (<DRAG_THRESHOLD px of
+      // movement) is treated as a click → select at cursor. Anything with
+      // more movement is a pan: camera detaches from the player and
+      // tracks the cursor, just like a two-finger trackpad scroll. We
+      // implement this via DOM events rather than Kaplay's onMousePress
+      // because we need to discriminate press-then-move from press-release
+      // at `mouseup` time, not at `mousedown`.
+      const DRAG_THRESHOLD = 4;
+      let dragState = null;
+
+      function selectAtMouse() {
         const m = toWorld ? toWorld(mousePos()) : mousePos();
         for (const b of get('building')) {
           if (
@@ -1074,12 +1601,75 @@
             m.y >= b.pos.y && m.y <= b.pos.y + CARD_H
           ) {
             selected = b;
+            walkTarget = null;
             return;
           }
         }
-        const hitEdge = findHoveredEdge(m, graph.edges, edgePaths, 10);
-        selected = hitEdge; // edge or null
-      });
+        const activeIds = collectActiveIds();
+        const hittable = graph.edges.filter((e) => isEdgeVisible(e, activeIds));
+        const hitEdge = findHoveredEdge(m, hittable, edgePaths, 10);
+        if (hitEdge) {
+          selected = hitEdge;
+          walkTarget = null;
+          return;
+        }
+        // Empty canvas — clear selection and kick off a launch→dash→land
+        // sequence toward the click. The lean angle comes from the
+        // horizontal component of the direction vector so left/right
+        // targets get a corresponding tilt while up/down stays upright.
+        // Re-engage follow so the camera tracks the player to the
+        // destination even if the user had previously dragged to pan.
+        selected = null;
+        const dx0 = m.x - player.pos.x;
+        const dy0 = m.y - player.pos.y;
+        const d0 = Math.hypot(dx0, dy0);
+        const nx = d0 > 0.01 ? dx0 / d0 : 0;
+        const ny = d0 > 0.01 ? dy0 / d0 : 0;
+        walkState = {
+          target: { x: m.x, y: m.y },
+          nx, ny,
+          lean: nx * LEAN_MAX,
+          phase: 'launch',
+          t: 0,
+        };
+        cam.following = true;
+      }
+
+      if (canvas) {
+        canvas.style.cursor = 'grab';
+        canvas.addEventListener('mousedown', (e) => {
+          if (e.button !== 0) return;
+          dragState = {
+            startX: e.clientX, startY: e.clientY,
+            prevX: e.clientX,  prevY: e.clientY,
+            dragging: false,
+          };
+        });
+        window.addEventListener('mousemove', (e) => {
+          if (!dragState) return;
+          if (!dragState.dragging) {
+            const moved = Math.hypot(
+              e.clientX - dragState.startX,
+              e.clientY - dragState.startY,
+            );
+            if (moved <= DRAG_THRESHOLD) return;
+            dragState.dragging = true;
+            canvas.style.cursor = 'grabbing';
+          }
+          cam.following = false;
+          cam.tx -= (e.clientX - dragState.prevX) / cam.scale;
+          cam.ty -= (e.clientY - dragState.prevY) / cam.scale;
+          dragState.prevX = e.clientX;
+          dragState.prevY = e.clientY;
+        });
+        window.addEventListener('mouseup', (e) => {
+          if (!dragState || e.button !== 0) return;
+          const wasDragging = dragState.dragging;
+          dragState = null;
+          canvas.style.cursor = 'grab';
+          if (!wasDragging) selectAtMouse();
+        });
+      }
 
       onKeyPress('escape', () => { selected = null; });
 
@@ -1149,6 +1739,26 @@
 
       // Reload
       onKeyPress('r', () => window.location.reload());
+    }
+
+    // Scale + center that fits the entire world inside the current
+    // viewport, with a small breathing margin so belts/domain labels
+    // aren't flush against the screen edge. Clamped to the camera's
+    // allowed zoom range so a tiny workspace doesn't over-zoom.
+    function computeFitView(world) {
+      const FIT_MARGIN = 1.12;  // 12% padding around content
+      const vw = Math.max(1, window.innerWidth);
+      const vh = Math.max(1, window.innerHeight);
+      const rawScale = Math.min(
+        vw / (world.w * FIT_MARGIN),
+        vh / (world.h * FIT_MARGIN),
+      );
+      const scale = clamp(rawScale, 0.3, 3);
+      return {
+        scale,
+        tx: world.w / 2,
+        ty: world.h / 2,
+      };
     }
 
     function chooseSpawn(graph, positions, world) {

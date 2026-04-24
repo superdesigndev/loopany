@@ -10,7 +10,7 @@
 // `.html` imports as `HTMLBundle`. We cast through unknown to sidestep that.
 import indexHtmlRaw from './index.html' with { type: 'text' };
 const indexHtml = indexHtmlRaw as unknown as string;
-import crewletSvg from './crewlet.svg' with { type: 'text' };
+import playerSvg from './player.svg' with { type: 'text' };
 import type { Engine } from '../core/engine.ts';
 import { buildGraph } from './graph.ts';
 import { openInEditor } from './editor.ts';
@@ -51,8 +51,8 @@ async function handle(req: Request, engine: Engine): Promise<Response> {
     });
   }
 
-  if (req.method === 'GET' && url.pathname === '/assets/crewlet.svg') {
-    return new Response(crewletSvg as unknown as string, {
+  if (req.method === 'GET' && url.pathname === '/assets/player.svg') {
+    return new Response(playerSvg as unknown as string, {
       headers: {
         'content-type': 'image/svg+xml',
         'cache-control': 'public, max-age=3600',
