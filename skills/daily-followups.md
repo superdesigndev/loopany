@@ -52,6 +52,14 @@ already captured elsewhere → flip to `done` via
 numbers only the user has. A `learning` that may now be wrong. A
 `signal` that's come back after being dismissed.
 
+When the item is a `learning`, walk its causal chain before deciding —
+the belief may rest on multi-hop evidence that's no longer fresh:
+
+```bash
+loopany trace <lrn-id> --direction backward
+# returns every artifact that fed into the belief, in distance order
+```
+
 **C. Defer with a reason.** Not actionable today, but still relevant.
 Push `check_at` forward and **record why** — silent deferrals rot.
 

@@ -223,12 +223,16 @@ step has nothing to translate into a real edit:
 
 ## Step 5 — Link the proposal ← learning ← evidence
 
-Already done via `--mentions` and `--evidence`, but double-check:
+Already done via `--mentions` and `--evidence`, but double-check the
+full chain in one call:
 
 ```bash
-loopany refs <lrn-id>              # should show incoming from the spr
-loopany refs <spr-id>              # should show outgoing to the lrn
+loopany trace <spr-id> --direction backward
+# spr → lrn → tasks/signals — all in one signed-distance timeline
 ```
+
+If anything is missing, the proposal's motivation can't be reconstructed
+from the graph alone. Add the missing edge before moving on.
 
 If the learning supersedes an older one, add that edge explicitly:
 

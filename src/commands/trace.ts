@@ -1,8 +1,10 @@
 // `loopany trace <id> [--direction forward|backward|both] [--relations csv] [--max-depth N]`
 //
-// Walk causal predicates from <id> to fixed point. Default predicates are
-// led-to, follows-up, supersedes — the canonical causal set per CLAUDE.md.
-// `caused-by` is intentionally excluded; CLAUDE.md prefers `led-to` and
+// Walk causal / lineage predicates from <id> to fixed point. The default
+// predicate set is the canonical causal-and-evidence verbs from
+// skills/conventions/relations.md: led-to, addresses, supersedes,
+// follows-up, cites. mentions is excluded — it's a soft pointer, not
+// lineage. caused-by is excluded too; CLAUDE.md prefers led-to and
 // expects callers to use --direction backward to reach causes.
 //
 // Output:
@@ -18,7 +20,7 @@ import { parseArgs } from './argv.ts';
 
 type Direction = 'forward' | 'backward' | 'both';
 
-const DEFAULT_RELATIONS = ['led-to', 'follows-up', 'supersedes'];
+const DEFAULT_RELATIONS = ['led-to', 'addresses', 'supersedes', 'follows-up', 'cites'];
 
 export interface TraceNode extends ArtifactMeta {
   distance: number;
