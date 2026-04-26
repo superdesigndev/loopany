@@ -164,6 +164,21 @@ ad-hoc verbs.
 yourself writing it for every refs.add, ask: was this **causal** (use it),
 **responsive** (`addresses`), or just **referential** (`mentions`)?
 
+## Walking chains, not single edges
+
+`loopany refs <id>` is one hop. For the full lineage — "what fed into
+this learning, all the way back" or "what came of this signal, all the
+way forward" — use `loopany trace`:
+
+```bash
+loopany trace <id> --direction backward
+# walks led-to / addresses / supersedes / follows-up / cites
+# (mentions excluded by default — soft pointer, not lineage)
+```
+
+Output is a signed-distance timeline: negative = causes, 0 = root,
+positive = effects. Override the predicate set with `--relations csv`.
+
 ## Quick reference
 
 | Verb         | Direction                        | When to use                              |
