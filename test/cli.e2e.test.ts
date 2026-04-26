@@ -571,6 +571,93 @@ describe('loopany refs', () => {
   });
 });
 
+describe('loopany trace', () => {
+  test('walks led-to forward and backward from a middle node', async () => {
+    const ws = await init();
+    const a = JSON.parse((await runCli(ws, 'artifact', 'create', '--kind', 'signal', '--summary', 'A')).stdout);
+    const b = JSON.parse((await runCli(ws, 'artifact', 'create', '--kind', 'task', '--title', 'B', '--status', 'todo')).stdout);
+    const c = JSON.parse((await runCli(ws, 'artifact', 'create', '--kind', 'learning', '--title', 'C')).stdout);
+    await runCli(ws, 'refs', 'add', '--from', a.id, '--to', b.id, '--relation', 'led-to');
+    await runCli(ws, 'refs', 'add', '--from', b.id, '--to', c.id, '--relation', 'led-to');
+
+    const r = JSON.parse((await runCli(ws, 'trace', b.id)).stdout);
+    expect(r.root).toBe(b.id);
+    const byId: Record<string, number> = {};
+    for (const n of r.nodes) byId[n.id] = n.distance;
+    expect(byId[a.id]).toBe(-1);
+    expect(byId[b.id]).toBe(0);
+    expect(byId[c.id]).toBe(1);
+    expect(r.edges.length).toBe(2);
+    // Sorted ascending by distance — cause first, root middle, effect last.
+    expect(r.nodes.map((n: { id: string }) => n.id)).toEqual([a.id, b.id, c.id]);
+  });
+
+  test('--direction forward only', async () => {
+    const ws = await init();
+    const a = JSON.parse((await runCli(ws, 'artifact', 'create', '--kind', 'signal', '--summary', 'A')).stdout);
+    const b = JSON.parse((await runCli(ws, 'artifact', 'create', '--kind', 'task', '--title', 'B', '--status', 'todo')).stdout);
+    const c = JSON.parse((await runCli(ws, 'artifact', 'create', '--kind', 'learning', '--title', 'C')).stdout);
+    await runCli(ws, 'refs', 'add', '--from', a.id, '--to', b.id, '--relation', 'led-to');
+    await runCli(ws, 'refs', 'add', '--from', b.id, '--to', c.id, '--relation', 'led-to');
+
+    const r = JSON.parse((await runCli(ws, 'trace', b.id, '--direction', 'forward')).stdout);
+    expect(r.nodes.map((n: { id: string }) => n.id)).toEqual([b.id, c.id]);
+  });
+
+  test('default predicate set excludes mentions', async () => {
+    const ws = await init();
+    const a = JSON.parse((await runCli(ws, 'artifact', 'create', '--kind', 'task', '--title', 'A', '--status', 'todo')).stdout);
+    const b = JSON.parse((await runCli(ws, 'artifact', 'create', '--kind', 'task', '--title', 'B', '--status', 'todo')).stdout);
+    await runCli(ws, 'refs', 'add', '--from', a.id, '--to', b.id, '--relation', 'mentions');
+
+    const r = JSON.parse((await runCli(ws, 'trace', a.id)).stdout);
+    expect(r.edges.length).toBe(0);
+    expect(r.nodes.map((n: { id: string }) => n.id)).toEqual([a.id]);
+  });
+
+  test('--relations opts in to additional predicates', async () => {
+    const ws = await init();
+    const a = JSON.parse((await runCli(ws, 'artifact', 'create', '--kind', 'task', '--title', 'A', '--status', 'todo')).stdout);
+    const b = JSON.parse((await runCli(ws, 'artifact', 'create', '--kind', 'task', '--title', 'B', '--status', 'todo')).stdout);
+    await runCli(ws, 'refs', 'add', '--from', a.id, '--to', b.id, '--relation', 'mentions');
+
+    const r = JSON.parse((await runCli(ws, 'trace', a.id, '--relations', 'mentions')).stdout);
+    expect(r.nodes.map((n: { id: string }) => n.id).sort()).toEqual([a.id, b.id].sort());
+  });
+
+  test('terminates on cycles', async () => {
+    const ws = await init();
+    const a = JSON.parse((await runCli(ws, 'artifact', 'create', '--kind', 'task', '--title', 'A', '--status', 'todo')).stdout);
+    const b = JSON.parse((await runCli(ws, 'artifact', 'create', '--kind', 'task', '--title', 'B', '--status', 'todo')).stdout);
+    await runCli(ws, 'refs', 'add', '--from', a.id, '--to', b.id, '--relation', 'led-to');
+    await runCli(ws, 'refs', 'add', '--from', b.id, '--to', a.id, '--relation', 'led-to');
+
+    const r = JSON.parse((await runCli(ws, 'trace', a.id, '--direction', 'forward')).stdout);
+    // Two distinct edges, two nodes; no infinite loop.
+    expect(r.edges.length).toBe(2);
+    expect(r.nodes.length).toBe(2);
+  });
+
+  test('--max-depth caps the walk', async () => {
+    const ws = await init();
+    const a = JSON.parse((await runCli(ws, 'artifact', 'create', '--kind', 'task', '--title', 'A', '--status', 'todo')).stdout);
+    const b = JSON.parse((await runCli(ws, 'artifact', 'create', '--kind', 'task', '--title', 'B', '--status', 'todo')).stdout);
+    const c = JSON.parse((await runCli(ws, 'artifact', 'create', '--kind', 'task', '--title', 'C', '--status', 'todo')).stdout);
+    await runCli(ws, 'refs', 'add', '--from', a.id, '--to', b.id, '--relation', 'led-to');
+    await runCli(ws, 'refs', 'add', '--from', b.id, '--to', c.id, '--relation', 'led-to');
+
+    const r = JSON.parse((await runCli(ws, 'trace', a.id, '--direction', 'forward', '--max-depth', '1')).stdout);
+    expect(r.nodes.map((n: { id: string }) => n.id)).toEqual([a.id, b.id]);
+  });
+
+  test('rejects unknown id', async () => {
+    const ws = await init();
+    const r = await runCli(ws, 'trace', 'tsk-99999999-999999');
+    expect(r.code).not.toBe(0);
+    expect(r.stderr).toContain('No artifact');
+  });
+});
+
 describe('loopany followups', () => {
   test('returns tasks with check_at <= today', async () => {
     const ws = await init();

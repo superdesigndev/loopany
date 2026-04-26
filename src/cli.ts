@@ -14,6 +14,7 @@ import { runArtifactAppend } from './commands/artifact-append.ts';
 import { runArtifactStatus } from './commands/artifact-status.ts';
 import { runArtifactSet } from './commands/artifact-set.ts';
 import { runRefsAdd, runRefsQuery } from './commands/refs.ts';
+import { runTrace } from './commands/trace.ts';
 import { runFollowups } from './commands/followups.ts';
 import { runDoctor, formatReport } from './commands/doctor.ts';
 import { runDomainList, runDomainEnable, runDomainDisable } from './commands/domain.ts';
@@ -193,6 +194,14 @@ async function dispatch(
       process.stdout.write(JSON.stringify(result, null, 2) + '\n');
       return;
     }
+    case 'trace': {
+      const engine = await bootstrap();
+      const result = await runTrace(engine, _rest);
+      meta.nodes = result.nodes.length;
+      meta.edges = result.edges.length;
+      process.stdout.write(JSON.stringify(result, null, 2) + '\n');
+      return;
+    }
     case 'followups': {
       const engine = await bootstrap();
       const result = await runFollowups(engine, _rest);
@@ -281,8 +290,11 @@ ARTIFACTS
   artifact list [--kind] [--status]     List artifacts
 
 GRAPH
-  refs <id> [--direction in|out|both]   Query reference graph
+  refs <id> [--direction in|out|both] [--depth N]
+                                        Query reference graph (BFS, depth N)
   refs add --from <id> --to <id> ...    Add a reference edge
+  trace <id> [--direction backward|forward|both] [--relations csv]
+                                        Walk causal predicates to fixed point
 
 DOMAINS
   domain list                           List enabled + observed domains

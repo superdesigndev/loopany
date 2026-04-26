@@ -88,7 +88,8 @@ loopany artifact get <id>
 loopany artifact list [--kind] [--domain] [--status] [--date] [--where]
 
 # Graph queries
-loopany refs <id> [--direction in|out|both] [--relation X] [--depth 1|2]
+loopany refs <id> [--direction in|out|both] [--relation X] [--depth N]
+loopany trace <id> [--direction backward|forward|both] [--relations csv] [--max-depth N]
 loopany search <query> [--kind] [--domain] [--since]
 
 # Follow-up scheduling
