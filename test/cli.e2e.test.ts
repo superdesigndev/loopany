@@ -521,6 +521,54 @@ describe('loopany refs', () => {
     const edges = JSON.parse(r.stdout);
     expect(edges.length).toBe(2);
   });
+
+  test('--depth 2 walks two hops along --direction out', async () => {
+    const ws = await init();
+    const a = JSON.parse((await runCli(ws, 'artifact', 'create', '--kind', 'task', '--title', 'A', '--status', 'todo')).stdout);
+    const b = JSON.parse((await runCli(ws, 'artifact', 'create', '--kind', 'task', '--title', 'B', '--status', 'todo')).stdout);
+    const c = JSON.parse((await runCli(ws, 'artifact', 'create', '--kind', 'task', '--title', 'C', '--status', 'todo')).stdout);
+    await runCli(ws, 'refs', 'add', '--from', a.id, '--to', b.id, '--relation', 'led-to');
+    await runCli(ws, 'refs', 'add', '--from', b.id, '--to', c.id, '--relation', 'led-to');
+
+    const depth1 = JSON.parse((await runCli(ws, 'refs', a.id, '--direction', 'out', '--depth', '1')).stdout);
+    expect(depth1.map((e: { to: string }) => e.to)).toEqual([b.id]);
+
+    const depth2 = JSON.parse((await runCli(ws, 'refs', a.id, '--direction', 'out', '--depth', '2')).stdout);
+    const tos = depth2.map((e: { to: string }) => e.to).sort();
+    expect(tos).toEqual([b.id, c.id].sort());
+  });
+
+  test('--depth terminates on cycles without duplicate edges', async () => {
+    const ws = await init();
+    const a = JSON.parse((await runCli(ws, 'artifact', 'create', '--kind', 'task', '--title', 'A', '--status', 'todo')).stdout);
+    const b = JSON.parse((await runCli(ws, 'artifact', 'create', '--kind', 'task', '--title', 'B', '--status', 'todo')).stdout);
+    await runCli(ws, 'refs', 'add', '--from', a.id, '--to', b.id, '--relation', 'led-to');
+    await runCli(ws, 'refs', 'add', '--from', b.id, '--to', a.id, '--relation', 'led-to');
+
+    const r = JSON.parse((await runCli(ws, 'refs', a.id, '--direction', 'out', '--depth', '5')).stdout);
+    expect(r.length).toBe(2);
+  });
+
+  test('--depth 2 with --relation prunes off-relation hops', async () => {
+    const ws = await init();
+    const a = JSON.parse((await runCli(ws, 'artifact', 'create', '--kind', 'task', '--title', 'A', '--status', 'todo')).stdout);
+    const b = JSON.parse((await runCli(ws, 'artifact', 'create', '--kind', 'task', '--title', 'B', '--status', 'todo')).stdout);
+    const c = JSON.parse((await runCli(ws, 'artifact', 'create', '--kind', 'task', '--title', 'C', '--status', 'todo')).stdout);
+    await runCli(ws, 'refs', 'add', '--from', a.id, '--to', b.id, '--relation', 'led-to');
+    await runCli(ws, 'refs', 'add', '--from', b.id, '--to', c.id, '--relation', 'mentions');
+
+    const r = JSON.parse((await runCli(ws, 'refs', a.id, '--direction', 'out', '--depth', '2', '--relation', 'led-to')).stdout);
+    expect(r.length).toBe(1);
+    expect(r[0].to).toBe(b.id);
+  });
+
+  test('--depth rejects non-positive integers', async () => {
+    const ws = await init();
+    const a = JSON.parse((await runCli(ws, 'artifact', 'create', '--kind', 'task', '--title', 'A', '--status', 'todo')).stdout);
+    const r = await runCli(ws, 'refs', a.id, '--depth', '0');
+    expect(r.code).not.toBe(0);
+    expect(r.stderr).toContain('Invalid --depth');
+  });
 });
 
 describe('loopany followups', () => {
