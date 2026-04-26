@@ -130,14 +130,14 @@ EOF
 
 ## Dismissing a signal
 
-`dismissed: true` means "noted, no action planned." Flip when:
+`status: dismissed` means "noted, no action planned." Flip when:
 
 - Investigated and concluded false positive.
 - Duplicated by a stronger signal you're keeping.
 - Underlying condition went away (library upgrade, refactor moot).
 
 ```bash
-loopany artifact set <sig-id> --field dismissed --value true
+loopany artifact status <sig-id> dismissed --reason "..."
 loopany artifact append <sig-id> --section "Dismissal" --content "..."
 ```
 

@@ -46,6 +46,14 @@ export class ArtifactStore {
     const def = this.registry.get(kind);
     if (!def) throw new Error(`Unknown kind: ${kind}`);
 
+    // Auto-fill status from the kind's status machine initial when caller omitted it.
+    // The frontmatter schema's `default` is for arbitrary field defaults; the status
+    // machine's `initial` is the canonical "newly-created" state — apply it here so
+    // callers don't have to repeat `--status active` on every create.
+    if (def.statusMachine && frontmatter.status === undefined) {
+      frontmatter = { ...frontmatter, status: def.statusMachine.initial };
+    }
+
     const validated = def.frontmatterSchema.parse(frontmatter) as Record<string, unknown>;
 
     const id = await this.allocateId(def, opts);

@@ -710,15 +710,15 @@ describe('loopany artifact set', () => {
     expect(JSON.parse(get.stdout).frontmatter.title).toBe('new title');
   });
 
-  test('toggles signal.dismissed', async () => {
+  test('flips signal status to dismissed', async () => {
     const ws = await init();
     const c = await runCli(ws, 'artifact', 'create', '--kind', 'signal', '--summary', 'noticed X');
     const id = JSON.parse(c.stdout).id;
 
-    const r = await runCli(ws, 'artifact', 'set', id, '--field', 'dismissed', '--value', 'true');
+    const r = await runCli(ws, 'artifact', 'status', id, 'dismissed', '--reason', 'false positive');
     expect(r.code).toBe(0);
     const get = await runCli(ws, 'artifact', 'get', id, '--format', 'json');
-    expect(JSON.parse(get.stdout).frontmatter.dismissed).toBe(true);
+    expect(JSON.parse(get.stdout).frontmatter.status).toBe('dismissed');
   });
 
   test('rejects setting status field', async () => {

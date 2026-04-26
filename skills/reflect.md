@@ -35,7 +35,7 @@ loopany artifact list --kind task --status done
 loopany artifact list --kind signal
 
 # Dismissed signals — why did these get ignored?
-loopany artifact list --kind signal --dismissed true
+loopany artifact list --kind signal --status dismissed
 
 # Existing beliefs — are any of these now contradicted / extended?
 loopany artifact list --kind learning --status active
@@ -134,7 +134,7 @@ goal. Does not apply to `[incident]` tasks (where the baseline is
 
 ## Check-at
 Revisit 2026-07-22 — if by then `[change]` tasks routinely carry
-measurable before-numbers, this learning can be retired.
+measurable before-numbers, this learning can be archived.
 EOF
 )"
 ```

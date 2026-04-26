@@ -4,14 +4,15 @@ idPrefix: sig-
 bodyMode: append
 storage: date-bucketed
 idStrategy: timestamp
-indexedFields: [source, dismissed]
+indexedFields: [source, status]
 ---
 
 # signal
 
 A lightweight "I noticed something" — an inbound signal the agent might act
-on. No status machine; signals are either acted on (via a `led-to` reference
-to a follow-up artifact) or dismissed.
+on. Two states: `open` (default) and `dismissed`. Signals get acted on
+(via a `led-to` reference to a follow-up artifact) or dismissed with a
+reason.
 
 ## Frontmatter
 
@@ -20,13 +21,17 @@ summary:   { type: string, required: true }
 domain:    { type: string, required: false }
 source:    { type: string, required: false }   # 'email' / 'chat' / 'manual' / etc.
 url:       { type: string, required: false }
-dismissed: { type: bool, default: false }
+status:    { type: enum, values: [open, dismissed], default: open }
 mentions:  { type: 'string[]', required: false }
 ```
 
 ## Status machine
 
-(none — signal has no states)
+```yaml
+initial: open
+transitions:
+  open: [dismissed]
+```
 
 ## UI
 

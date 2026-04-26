@@ -62,13 +62,11 @@ Action / Lesson concept — self-improvement emerges from `## Outcome` sections
 ## Key Files (planned — to be implemented)
 
 - `src/cli.ts` — entrypoint, mirrors CLI command table below
-- `src/core/operations.ts` — contract-first op definitions (CLI and MCP both generated)
+- `src/core/operations.ts` — contract-first op definitions
 - `src/core/artifact-store.ts` — read/write/list/append for markdown artifacts
 - `src/core/kind-registry.ts` — parses `loopany/kinds/*.md`, exposes validators + state machines
 - `src/core/references.ts` — append-only graph, in-memory index build at startup
 - `src/core/domain-loader.ts` — loads `loopany/config.yaml`, materializes enabled domains
-- `src/core/skill-proposal.ts` — write / list / accept / reject proposals
-- `src/mcp/server.ts` — stdio MCP server, all operations exposed as tools
 - `src/commands/*.ts` — one file per CLI subcommand
 - `domains/*/` — domains live under the **workspace** (`~/loopany/domains/{name}/`), not the source tree; each is extracted from real usage
 - `skills/*.md` — core skills (resolver, conventions, core actions, reflect loop)
@@ -98,14 +96,8 @@ loopany followups [--due today|overdue]        # list artifacts whose check_at i
 
 # System
 loopany domain enable|disable|list
-loopany kind propose <file.md>                 # validate + write to proposals
 loopany kind list
-loopany lesson accept|reject <id>              # resolve a proposal
-loopany lint                                   # validate workspace integrity
 loopany doctor                                 # health check
-
-# Agent integration
-loopany mcp                                    # stdio MCP server
 
 # Experimental 
 loopany factory [--port N] [--no-open]         # read-only pixel-factory visualization of the workspace
@@ -150,8 +142,8 @@ on `status: done` → body must contain `## Outcome`
 cardFields: [title, status, priority]
 ```
 
-Agents propose new kinds via `loopany kind propose <file>`. Proposals land in
-`kind-proposals/pending/` and require human accept.
+Agents propose a new kind by drafting `kinds/<name>.md` and surfacing it
+to the user; promotion to active is a human decision (no CLI yet).
 
 **Most "I need to track X" should be a `note`, a new domain, or both — not a
 new kind.** Kinds are for things that justify *runtime-enforced structure*
@@ -232,8 +224,8 @@ Emerges from existing primitives. `learning` and `skill-proposal` are
 3. It writes two artifact kinds with evidence:
    - `learning` — the belief ("deals with >3 stakeholders close 2.5x slower")
    - `skill-proposal` — the matching behavior change, citing the learning
-4. User accepts or rejects via `loopany lesson accept|reject <id>`. On
-   accept: diff applied to target skill file, git commit, `## Outcome`
+4. User accepts or rejects (via `artifact status <spr-id> accepted|rejected`).
+   On accept: diff applied to target skill file, git commit, `## Outcome`
    appended to the spr. On reject: `## Outcome` records the reason —
    future reflects won't re-suggest it.
 5. `check_at` on accepted proposals schedules "did this help?" review;

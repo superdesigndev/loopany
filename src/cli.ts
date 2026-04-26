@@ -276,12 +276,18 @@ ARTIFACTS
   artifact create --kind <K> ...        Create new artifact
   artifact append <id> --section <S>    Append a section to body
   artifact status <id> <new-status>     Transition status
+  artifact set <id> --<field> <value>   Edit a non-status frontmatter field
   artifact get <id>                     Read an artifact
   artifact list [--kind] [--status]     List artifacts
 
 GRAPH
   refs <id> [--direction in|out|both]   Query reference graph
   refs add --from <id> --to <id> ...    Add a reference edge
+
+DOMAINS
+  domain list                           List enabled + observed domains
+  domain enable <name>                  Enable a domain
+  domain disable <name>                 Disable a domain
 
 SCHEDULING
   followups [--due today|overdue]       Find due check_at items

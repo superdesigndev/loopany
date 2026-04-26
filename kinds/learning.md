@@ -29,7 +29,7 @@ and when.
 ```yaml
 title:      { type: string, required: true }
 domain:     { type: string, required: false }
-status:     { type: enum, values: [active, superseded, retired], default: active }
+status:     { type: enum, values: [active, superseded, archived], default: active }
 evidence:   { type: 'string[]', required: false }
 supersedes: { type: string, required: false }
 check_at:   { type: date, required: false }
@@ -41,13 +41,14 @@ mentions:   { type: 'string[]', required: false }
 ```yaml
 initial: active
 transitions:
-  active: [superseded, retired]
+  active:     [superseded, archived]
+  superseded: [archived]
 ```
 
 ## Required sections
 
 On `status: superseded` → body must contain `## Outcome`
-On `status: retired` → body must contain `## Outcome`
+On `status: archived` → body must contain `## Outcome`
 
 ## UI
 
