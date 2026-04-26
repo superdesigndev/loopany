@@ -22,8 +22,7 @@ describe('scenario: follow up with Alice', () => {
     const sigCreate = await runCli(
       ws, 'artifact', 'create',
       '--kind', 'signal',
-      '--summary', 'User wants to follow up with Alice about contract',
-      '--source', 'chat',
+      '--title', 'User wants to follow up with Alice about contract',
     );
     expect(sigCreate.code).toBe(0);
     const sig = JSON.parse(sigCreate.stdout);

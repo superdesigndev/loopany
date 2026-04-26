@@ -9,14 +9,14 @@ Read recent `task` outcomes, dismissed `signal`s, and previously rejected
 proposals; decide whether the evidence supports a new **belief**
 (`learning`) or a new **behavior change** (`skill-proposal`).
 
-You don't edit skill files. You propose. A separate human step (via
-[[./proposal-review.md]]) applies the diff.
+You don't edit skill files. You propose; the user reads the proposal and
+applies the change. The proposal is the contract.
 
 ## When to run this
 
 - User asks: "reflect", "what have we learned", "improve yourself"
-- Scheduled cadence: weekly (monthly structural/goal review lives in
-  [[./monthly-review.md]])
+- Scheduled cadence: weekly (monthly structural/mission review lives in
+  [[monthly-review/SKILL.md]])
 - After a batch of completed tasks (≥ 3 `task` flipped to `done` in a short
   window)
 
@@ -65,7 +65,7 @@ that hasn't yet shaped any belief.
 
 **Exception — revalidating an existing belief.** When a `learning`'s
 own `check_at` fires, its evidence is relevant again — but that
-revisit belongs in [[./daily-followups.md]], not here. reflect looks
+revisit belongs in [[daily-followups/SKILL.md]], not here. reflect looks
 forward; daily-followups looks back at specific beliefs on schedule.
 
 For each remaining candidate, read the body:
@@ -87,11 +87,12 @@ You're looking for **repeat signal**, not one-off correlations.
 
 **Good examples**:
 
-- Four `[change]` tasks all note "no baseline captured before shipping" in
-  their `## Outcome` → **learning**: "change tasks without a before-number
-  produce unfalsifiable outcomes." → **skill-proposal** (target:
-  `skills/change-ledger.md`): "refuse to flip `[change]` task to `done`
-  unless body contains `## Before` with at least one metric line."
+- Four tasks with expected metric effects all note "no baseline captured
+  before shipping" in their `## Outcome` → **learning**: "tasks with
+  measurable expected effects but no baseline produce unfalsifiable
+  outcomes." → **skill-proposal** (target:
+  `skills/core-artifacts/SKILL.md`): "when a task claims a measurable
+  expected effect, require or strongly prompt for `## Before` before done."
 
 - Three `telemetry` tasks all needed a cleanup PR after the first ship →
   **learning**: "telemetry changes compound — always budget a cleanup PR
@@ -110,17 +111,17 @@ You're looking for **repeat signal**, not one-off correlations.
 
 ```bash
 loopany artifact create --kind learning \
-  --title "Change tasks without a ## Before produce unfalsifiable outcomes" \
+  --title "Tasks with measurable expected effects but no baseline produce unfalsifiable outcomes" \
   --domain ads \
   --evidence "tsk-20260422-072256,tsk-20260422-072256-2,tsk-20260422-072257" \
-  --mentions "gol-ads-ops-health" \     # this learning directly informs the goal
+  --mentions "mis-ads-ops-health" \     # this learning directly informs the mission
   --check-at 2026-07-22 \
   --content "$(cat <<'EOF'
 ## Observation
-Four `[change]` tasks (#450, #447, #451, #441) all flipped to `done` with
-"no rigorous before/after numbers captured" in their Outcome. Without a
-baseline number, we cannot tell whether the change moved the metric —
-only that the change shipped.
+Four tasks (#450, #447, #451, #441) claimed or implied measurable effects
+but flipped to `done` with "no rigorous before/after numbers captured" in
+their Outcome. Without a baseline number, we cannot tell whether the work
+moved the metric — only that it shipped.
 
 ## Evidence
 - tsk-20260422-072256 — "No before/after cache_hit numbers captured."
@@ -128,12 +129,12 @@ only that the change shipped.
 - tsk-20260422-072257 — "Observability stack shifted; no delta measured."
 
 ## Scope
-Applies specifically to `[change]` tasks under the `ads` ops-health
-goal. Does not apply to `[incident]` tasks (where the baseline is
-"things are broken" and the outcome is "things work").
+Applies specifically to tasks under the `ads` ops-health mission that claim
+or imply a measurable effect. Does not apply to purely qualitative or
+exploratory tasks where no useful metric exists.
 
 ## Check-at
-Revisit 2026-07-22 — if by then `[change]` tasks routinely carry
+Revisit 2026-07-22 — if by then metric-oriented tasks routinely carry
 measurable before-numbers, this learning can be archived.
 EOF
 )"
@@ -142,8 +143,8 @@ EOF
 **Key fields**:
 - `--title` — a declarative sentence, the belief itself
 - `--evidence` — list of artifact IDs; must be ≥ 2
-- `--mentions` — cite supporting artifacts, and any goal this learning
-  directly informs (see `kinds/goal.md` — don't add a goal reflexively)
+- `--mentions` — cite supporting artifacts, and any mission this learning
+  directly informs (see `kinds/mission.md` — don't add a mission reflexively)
 - `--check-at` — pick a date 1-3 months out; you're committing to revisit
 
 ## Step 4 — Write a `skill-proposal` (if a behavior change is warranted)
@@ -153,24 +154,25 @@ Only if the learning implies a concrete skill edit. Many learnings stop at
 
 ```bash
 loopany artifact create --kind skill-proposal \
-  --title "Require ## Before in [change] tasks before flipping to done" \
-  --target-skill "skills/change-ledger.md" \
+  --title "Require ## Before for metric-oriented tasks before flipping to done" \
+  --target-skill "skills/core-artifacts/SKILL.md" \
   --change-type modify \
   --domain ads \
   --evidence "lrn-20260422-120000" \
-  --mentions "gol-ads-ops-health,lrn-20260422-120000" \
+  --mentions "mis-ads-ops-health,lrn-20260422-120000" \
   --check-at 2026-06-22 \
   --content "$(cat <<'EOF'
 ## Motivation
-See learning lrn-20260422-120000 — change tasks routinely ship without a
-baseline, making outcomes unfalsifiable.
+See learning lrn-20260422-120000 — metric-oriented tasks routinely ship
+without a baseline, making outcomes unfalsifiable.
 
 ## Proposed change
-Target: `skills/change-ledger.md`
+Target: `skills/core-artifacts/SKILL.md`
 
-**Intent**: add a hard rule that any `[change]` task, when being flipped
-to `status: done`, must have a `## Before` section with at least one
-quantitative line (metric + number + units).
+**Intent**: add a rule that any task claiming a measurable expected effect,
+when being flipped to `status: done`, must have a `## Before` section with
+at least one quantitative line (metric + number + units), or explicitly say
+no useful baseline exists.
 
 **Where in the file**: in the "Status transitions" section, under the
 `done` transition notes, add a new bullet.
@@ -186,16 +188,15 @@ different domains may want different evidence formats. The skill is the
 place to codify "what counts as a before-number" for this domain.
 
 ## Expected effect
-- Short term: friction on 1-2 upcoming `[change]` tasks that would have
-  been flipped to done without a baseline. The friction is the point —
-  it forces going back to capture the number, or downgrading the task to
-  `cancelled`.
-- 3 months out: review `lrn-20260422-120000` — did `[change]` tasks with
-  Before-numbers land more falsifiable outcomes?
+- Short term: friction on 1-2 upcoming metric-oriented tasks that would
+  have been flipped to done without a baseline. The friction is the point:
+  capture the number, or explicitly record why no baseline exists.
+- 3 months out: review `lrn-20260422-120000` — did metric-oriented tasks
+  with Before-numbers land more falsifiable outcomes?
 
 ## Check-at
-2026-06-22 — after ~4-6 change tasks have been done under the new rule,
-assess whether outcome quality improved.
+2026-06-22 — after ~4-6 metric-oriented tasks have been done under the new
+rule, assess whether outcome quality improved.
 EOF
 )"
 ```
@@ -217,18 +218,84 @@ step has nothing to translate into a real edit:
 
 **Why natural language, not unified diff?** Two reasons:
 - LLM-generated diffs with line numbers are brittle (context drift).
-- Accept is a separate agent step — [[./proposal-review.md]] reads the
-  proposal, looks at the current skill file, and produces the real edit.
-  The proposal describes intent; accept applies it.
+- Accept is a separate human step — the user reads the proposal, looks
+  at the current skill file, and produces the real edit. The proposal
+  describes intent; accept applies it.
+
+### When `change_type: add` — proposing a brand-new skill
+
+A new skill is a **directory** with a `SKILL.md`, per the Anthropic
+Agent Skills format. **Default assumption: extend an existing skill.**
+Only propose `add` when no existing skill cleanly fits.
+
+Three differences from `modify`:
+
+- `--target-skill` is the to-be-created path, e.g.
+  `skills/<new-name>/SKILL.md`. Pick `<new-name>` from the skill's
+  identity (kebab-case verb or noun), not from the proposal title.
+- `## Proposed change` must **name which existing skills were
+  considered and why each was rejected** as a host. "It didn't fit"
+  isn't enough; name the skill, name the section, name the mismatch.
+- The body adds two extra required sections:
+  - **`## Skill draft`** — full SKILL.md to create (YAML frontmatter +
+    body). Frontmatter must include `name` and `description`. The
+    description states what the skill does AND when to trigger, in
+    **"pushy" form** to combat undertrigger. **Trigger phrasing must
+    mirror what the user would actually type**, not internal jargon —
+    "review the deploy" beats "execute deployment verification protocol".
+  - **`## Resolver entry`** — the row to add to `skills/RESOLVER.md`
+    (trigger column → `[[<new-name>/SKILL.md]]`). Without this row, the
+    scaffolded skill is unreachable. Reuse the same trigger phrases as
+    the description; both must mirror real user language.
+
+Example tail of the body:
+
+```markdown
+## Proposed change
+Target: `skills/dedup-evidence/SKILL.md` (new).
+
+Existing skills considered:
+- `reflect/SKILL.md` — dedup is invoked from any evidence-citing path,
+  not only reflect. Burying it inside reflect hides it from
+  `core-artifacts` callers.
+- `core-artifacts/SKILL.md` — adding cross-kind dedup logic would
+  dilute its "one kind per section" structure.
+
+Stands alone so any caller can `[[dedup-evidence/SKILL.md]]`.
+
+## Skill draft
+\`\`\`markdown
+---
+name: loopany-dedup-evidence
+description: Use whenever you're about to cite artifacts as `--evidence`
+on a `learning` or `skill-proposal`. Filters out IDs already cited by
+active learnings or non-rejected proposals so the same data point doesn't
+shape two beliefs. Make sure to use this even on small batches —
+duplicates compound silently.
+---
+
+# dedup-evidence — strip already-cited IDs from a candidate set
+…
+\`\`\`
+
+## Resolver entry
+\`\`\`
+| "about to cite evidence" / "before I add evidence" / writing `--evidence` | [[dedup-evidence/SKILL.md]] |
+\`\`\`
+```
 
 ## Step 5 — Link the proposal ← learning ← evidence
 
-Already done via `--mentions` and `--evidence`, but double-check:
+Already done via `--mentions` and `--evidence`, but double-check the
+full chain in one call:
 
 ```bash
-loopany refs <lrn-id>              # should show incoming from the spr
-loopany refs <spr-id>              # should show outgoing to the lrn
+loopany trace <spr-id> --direction backward
+# spr → lrn → tasks/signals — all in one signed-distance timeline
 ```
+
+If anything is missing, the proposal's motivation can't be reconstructed
+from the graph alone. Add the missing edge before moving on.
 
 If the learning supersedes an older one, add that edge explicitly:
 
@@ -266,9 +333,21 @@ why it differs), or drop it.
 
 ### ❌ Editing the skill file directly
 
-Never. The only path to a skill edit is: write proposal → user accepts →
-`accept-proposal` skill applies the diff. Direct edits bypass the record
-and the review.
+Never. The only path is: write proposal → user reads → user (or an
+agent the user dispatches) applies the change. Direct edits bypass the
+record.
+
+### ❌ Proposing `add` without a `## Resolver entry`
+
+The scaffolded skill is unreachable — `RESOLVER.md` is the only
+dispatcher entry point. A skill that's not listed there is dead code.
+
+### ❌ Trigger phrases written in jargon
+
+Both the `description` and the `## Resolver entry` triggers must mirror
+real user language. "Review the deploy" beats "execute deployment
+verification protocol". A phrase the user never types is a phrase that
+never fires.
 
 ### ❌ Learning as log entry
 

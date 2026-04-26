@@ -27,7 +27,7 @@ loopany followups --due today
 ```
 
 Returns artifacts whose `check_at` is today. Overdue sweeps belong to
-[[./weekly-sweep.md]] — don't do them here.
+[[weekly-sweep/SKILL.md]] — don't do them here.
 
 If the list is empty, say so briefly and stop. A quiet day is a valid
 outcome; don't manufacture something to surface.
@@ -46,11 +46,19 @@ Three buckets:
 it was scheduled for. A `learning` whose scope obviously still holds →
 extend `check_at` with a one-line reason. A `task` whose outcome is
 already captured elsewhere → flip to `done` via
-[[./conventions/core-artifacts.md]].
+[[core-artifacts/SKILL.md]].
 
-**B. Needs the user.** A `[change]` task whose `## Outcome` requires
-numbers only the user has. A `learning` that may now be wrong. A
-`signal` that's come back after being dismissed.
+**B. Needs the user.** A task whose `## Outcome` requires numbers only the
+user has. A `learning` that may now be wrong. A `signal` that's come back
+after being dismissed.
+
+When the item is a `learning`, walk its causal chain before deciding —
+the belief may rest on multi-hop evidence that's no longer fresh:
+
+```bash
+loopany trace <lrn-id> --direction backward
+# returns every artifact that fed into the belief, in distance order
+```
 
 **C. Defer with a reason.** Not actionable today, but still relevant.
 Push `check_at` forward and **record why** — silent deferrals rot.
@@ -84,10 +92,10 @@ needed."
 
 Don't handle outcomes inline. Route each response to the right skill:
 
-- Task outcome → [[./conventions/core-artifacts.md]] § Tasks
+- Task outcome → [[core-artifacts/SKILL.md]] § Task
 - Learning revision → extend `check_at`, or write a new learning with
-  `supersedes` (see [[./reflect.md]])
-- Signal upgrade / dismiss → [[./conventions/core-artifacts.md]] § Signals
+  `supersedes` (see [[reflect/SKILL.md]])
+- Signal upgrade / dismiss → [[core-artifacts/SKILL.md]] § Signal
 
 ## Step 5 — Close every item you surfaced
 
@@ -109,7 +117,7 @@ explicitly chose to push, next session will know why.
 
 **Why this step exists:** without it, nothing actually happens.
 Every surfaced item sits at its original `check_at`, shows up again
-tomorrow, surfaces in [[./weekly-sweep.md]] next week, and trains the
+tomorrow, surfaces in [[weekly-sweep/SKILL.md]] next week, and trains the
 user to ignore both digests. A digest whose prompts don't produce
 state changes is noise.
 
@@ -129,7 +137,7 @@ judgment — "these 3 of 11 need you" — not transcription.
 ### ❌ Running `--due overdue` here
 
 Overdue sweeps are weekly. Mixing them into the daily digest means
-nothing feels urgent. See [[./weekly-sweep.md]].
+nothing feels urgent. See [[weekly-sweep/SKILL.md]].
 
 ### ❌ Deferring without a reason
 

@@ -18,7 +18,7 @@ markdown that would otherwise scatter across an Obsidian vault.
 these holds:
 
 1. **State machine** — the artifact moves through enforced states
-   (`task`, `goal`, `learning`, `skill-proposal`)
+   (`task`, `mission`, `learning`, `skill-proposal`)
 2. **Identity / dedup** — many references must resolve to one canonical
    entity (`person`; future: `company`, `video` if you query by channel)
 3. **Structured queries** — you'll filter or aggregate by typed fields

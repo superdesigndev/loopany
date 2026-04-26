@@ -1,9 +1,12 @@
-// `loopany refs <id> [--direction in|out|both] [--relation R]`
+// `loopany refs <id> [--direction in|out|both] [--relation R] [--depth N]`
 // `loopany refs add --from <id> --to <id> --relation <R>`
 
 import type { Engine } from '../core/engine.ts';
+import type { ArtifactIndex } from '../core/index.ts';
 import type { Edge } from '../core/references.ts';
 import { parseArgs } from './argv.ts';
+
+type Direction = 'in' | 'out' | 'both';
 
 export async function runRefsAdd(engine: Engine, args: string[]): Promise<Edge> {
   const { flags } = parseArgs(args);
@@ -21,26 +24,81 @@ export async function runRefsAdd(engine: Engine, args: string[]): Promise<Edge> 
 export async function runRefsQuery(engine: Engine, args: string[]): Promise<Edge[]> {
   const { positional, flags } = parseArgs(args);
   const id = positional[0];
-  if (!id) throw new Error('Usage: refs <id> [--direction in|out|both] [--relation R]');
+  if (!id) {
+    throw new Error('Usage: refs <id> [--direction in|out|both] [--relation R] [--depth N]');
+  }
 
-  const direction = (flags.direction ?? 'out') as 'in' | 'out' | 'both';
+  const direction = (flags.direction ?? 'out') as Direction;
+  const depth = flags.depth ? parseDepth(flags.depth) : 1;
   const idx = await engine.index();
 
-  let edges: Edge[];
-  if (direction === 'out') edges = idx.refsOut(id);
-  else if (direction === 'in') edges = idx.refsIn(id);
-  else edges = [...idx.refsOut(id), ...idx.refsIn(id)];
+  return traverse(idx, id, {
+    direction,
+    depth,
+    relation: flags.relation,
+    domain: flags.domain,
+  });
+}
 
-  if (flags.relation) {
-    edges = edges.filter((e) => e.relation === flags.relation);
+interface TraverseOptions {
+  direction: Direction;
+  depth: number;
+  relation?: string;
+  domain?: string;
+}
+
+// BFS over the in-memory graph. Visited tracks nodes (not edges) so we don't
+// re-expand a node, but every unique edge encountered along the way is
+// returned — the caller reconstructs paths from from/to. Depth N means up to
+// N hops; depth 1 is identical to the previous one-hop behavior.
+function traverse(idx: ArtifactIndex, startId: string, opts: TraverseOptions): Edge[] {
+  const visited = new Set<string>([startId]);
+  const seenEdge = new Set<string>();
+  const out: Edge[] = [];
+
+  let frontier: string[] = [startId];
+  for (let d = 0; d < opts.depth && frontier.length > 0; d++) {
+    const next: string[] = [];
+    for (const node of frontier) {
+      const edges = edgesAt(idx, node, opts.direction);
+      for (const e of edges) {
+        if (opts.relation && e.relation !== opts.relation) continue;
+        if (opts.domain && !edgeInDomain(idx, e, opts.domain)) continue;
+
+        const key = `${e.from}|${e.to}|${e.relation}|${e.ts}`;
+        if (!seenEdge.has(key)) {
+          seenEdge.add(key);
+          out.push(e);
+        }
+
+        const other = e.from === node ? e.to : e.from;
+        if (!visited.has(other)) {
+          visited.add(other);
+          next.push(other);
+        }
+      }
+    }
+    frontier = next;
   }
-  if (flags.domain) {
-    // Keep edges where both endpoints are in this domain (or endpoint unknown = drop).
-    edges = edges.filter((e) => {
-      const from = idx.byId(e.from);
-      const to = idx.byId(e.to);
-      return from?.frontmatter.domain === flags.domain && to?.frontmatter.domain === flags.domain;
-    });
+  return out;
+}
+
+function edgesAt(idx: ArtifactIndex, node: string, direction: Direction): Edge[] {
+  if (direction === 'out') return idx.refsOut(node);
+  if (direction === 'in') return idx.refsIn(node);
+  return [...idx.refsOut(node), ...idx.refsIn(node)];
+}
+
+function edgeInDomain(idx: ArtifactIndex, e: Edge, domain: string): boolean {
+  const from = idx.byId(e.from);
+  const to = idx.byId(e.to);
+  return from?.frontmatter.domain === domain && to?.frontmatter.domain === domain;
+}
+
+function parseDepth(s: string): number {
+  const n = Number(s);
+  if (!Number.isInteger(n) || n < 1) {
+    throw new Error(`Invalid --depth: ${s} (expected positive integer)`);
   }
-  return edges;
+  return n;
 }

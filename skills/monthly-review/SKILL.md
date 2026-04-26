@@ -1,13 +1,13 @@
 ---
 name: loopany-monthly-review
-description: Use on monthly cadence or when the user asks "is this still the right goal?" / "should we reset?" / "anything structural worth locking in?". Detects two drifts — (1) goal drift: active `goal` no longer matches recent tasks; (2) structural drift: recurring usage that should crystallize into a new `domain` or `kind`. Surfaces evidence; user decides.
+description: "Use on monthly cadence or when the user asks \"is this still the right mission?\" / \"should we reset?\" / \"anything structural worth locking in?\". Detects two drifts - (1) mission drift: active `mission` no longer matches recent tasks; (2) structural drift: recurring usage that should crystallize into a new `domain` or `kind`. Surfaces evidence; user decides."
 ---
 
-# monthly-review — goal-drift + structural-drift detection
+# monthly-review — mission-drift + structural-drift detection
 
 Two kinds of drift accumulate silently over a month:
 
-1. **Goal drift** — the active `goal` no longer describes the
+1. **Mission drift** — the active `mission` no longer describes the
    user's actual work. Feeds `ONBOARDING.md`'s re-run trigger.
 2. **Structural drift** — a recurring theme hasn't crystallized
    into a `domain` or `kind` yet.
@@ -17,34 +17,34 @@ Neither auto-acts. Surface evidence; the user decides.
 ## When to run this
 
 - Scheduled: once per month (agent platforms)
-- On demand: user asks "is this still the right goal," "should we
+- On demand: user asks "is this still the right mission," "should we
   reset," "anything structural worth locking in?"
 
 **Never weekly.** One week of task data is too small to tell drift
 from noise.
 
-## Step 1 — Pull the goal and recent tasks
+## Step 1 — Pull the mission and recent tasks
 
 ```bash
-loopany artifact list --kind goal --status active
+loopany artifact list --kind mission --status active
 loopany artifact list --kind task   # filter by id prefix to last 30d
 ```
 
 ## Step 2 — Compute alignment
 
-For each active goal:
+For each active mission:
 
 ```
-alignment = tasks mentioning this goal / total recent tasks
-             (restricted to the goal's domain, if it has one)
+alignment = tasks mentioning this mission / total recent tasks
+             (restricted to the mission's domain, if it has one)
 ```
 
 Thresholds:
 
 - **≥ 60%** — healthy. No action.
 - **30–60%** — partial drift. Ask whether the stray tasks actually
-  serve the goal (missing `--mentions` backfill) or a second goal
-  is worth locking in.
+  serve the mission (missing `--mentions` backfill) or a second
+  mission is worth locking in.
 - **< 30%** — clear drift. Propose re-running onboarding.
 
 Weight toward recent originals. `[backfill]` tasks seeded during
@@ -52,13 +52,13 @@ onboarding don't reflect current intent.
 
 ## Step 3 — Surface to the user
 
-All goals healthy → one-line note, done.
+All missions healthy → one-line note, done.
 
 Drift detected → present concretely, with evidence:
 
 ```
-Drift on `gol-mrr-growth` (active since 2026-01):
-- 23 tasks in the last 30 days, 6 mention this goal (26%)
+Drift on `mis-mrr-growth` (active since 2026-01):
+- 23 tasks in the last 30 days, 6 mention this mission (26%)
 - The other 17: mostly hiring + infra work
 
 Two options:
@@ -69,7 +69,7 @@ Two options:
 ## Step 4 — Act
 
 - **Backfill** → batch-update `--mentions` on affected tasks.
-- **Re-run onboarding** → flip the old goal to `superseded`, create
+- **Re-run onboarding** → flip the old mission to `abandoned`, create
   the new one, add the `supersedes` edge. See `ONBOARDING.md` §
   "When to re-run onboarding."
 - **Neither** → push this skill's `check_at` 2–4 weeks with a
@@ -94,13 +94,12 @@ loopany doctor --format json   # `domain coverage` lists offenders
 - The domain is distinguishable from every enabled one — if it's a
   re-label of an existing one, rename, don't add
 
-If met, propose a `[change]` task (standard shape, see
-[[./conventions/core-artifacts.md]]). The structural-specific content:
+If met, propose a `task` (see [[core-artifacts/SKILL.md]]). Suggested
+content:
 
-- `## Hypothesis` — "treating `xyz` as its own domain clears
-  doctor's coverage warnings and makes `artifact list --domain xyz`
-  a useful query"
-- `## Before` — the N ids currently tagged `domain: xyz`
+- `## Why` — treating `xyz` as its own domain should clear doctor's
+  coverage warnings and make `artifact list --domain xyz` useful
+- `## Current evidence` — the N ids currently tagged `domain: xyz`
 - `## Sweep plan` — **real sweep** (domain is a tag, safe to
   retroactively reassign):
     1. `loopany domain enable xyz`
@@ -124,13 +123,13 @@ fields at the top. Not "notes about the same topic" — notes that
   machine / identity / structured queries / required body shape).
   If none of the four hold, it stays a `note`.
 
-If met, propose a `[change]` task. Specifics:
+If met, propose a `task`. Suggested content:
 
-- `## Hypothesis` — "a dedicated `experiment` kind lets
-  `artifact list --kind experiment` become useful and enforces
-  sections the notes already carry informally"
-- `## Before` — the N existing notes matching the shape, listed as
-  **evidence**, not migration candidates
+- `## Why` — a dedicated `experiment` kind should make
+  `artifact list --kind experiment` useful and enforce sections the notes
+  already carry informally
+- `## Current evidence` — the N existing notes matching the shape, listed
+  as **evidence**, not migration candidates
 - `## Sweep plan` — **None.** `kind` determines id prefix and
   storage path; retroactive change would invalidate
   `references.jsonl` and scramble `audit.jsonl` history. The new
@@ -145,12 +144,12 @@ If met, propose a `[change]` task. Specifics:
 One monthly digest:
 
 ```
-Goal drift:  <see Step 3>
+Mission drift: <see Step 3>
 Structural:  domain `xyz` candidate (7 artifacts, 3wk) — propose enable+sweep?
              kind `experiment` candidate (4 notes, 2wk, passes 4Q) — propose?
 ```
 
-One drift → one `[change]` task. None → say so and stop; the user
+One drift → one task. None → say so and stop; the user
 wants to know you looked.
 
 ## Anti-patterns
@@ -159,10 +158,10 @@ wants to know you looked.
 
 One week is noise; false drift alerts follow.
 
-### ❌ Auto-superseding a goal, or auto-filing a structural task
+### ❌ Auto-abandoning a mission, or auto-filing a structural task
 
 Drift is a hypothesis about intent, not a fact. Surface evidence
-and wait for approval — both goal status flips and structural
+and wait for approval — both mission status flips and structural
 tasks need a human on the trigger.
 
 ### ❌ Counting `[backfill]` tasks equally
@@ -172,7 +171,7 @@ down or exclude from the denominator.
 
 ### ❌ Ignoring domain scope in alignment
 
-If the goal has a domain, compute alignment within that domain
+If the mission has a domain, compute alignment within that domain
 only. Tasks in unrelated domains aren't expected to mention it.
 
 ### ❌ Proposing a new `kind` on first sighting
@@ -185,19 +184,19 @@ runtime enforces forever.
 ### ❌ Enabling a domain without committing to the sweep
 
 If you enable `xyz` but leave existing `domain: xyz` artifacts
-untouched (or never rename near-misses), the `[change]` task
-hasn't cleared anything. Commit to the sweep or don't file.
+untouched (or never rename near-misses), the task hasn't cleared
+anything. Commit to the sweep or don't file.
 
 ## Quick reference
 
 ```
-QUERY:     active goals + last-30d tasks
-COMPUTE:   alignment ratio per goal (within domain scope if any)
+QUERY:     active missions + last-30d tasks
+COMPUTE:   alignment ratio per mission (within domain scope if any)
 SURFACE:   <30% drift · 30-60% check · ≥60% healthy
 ACT:       backfill mentions OR re-run onboarding (supersedes)
 
 STRUCTURE: ≥5 artifacts on unenabled domain, ≥2wk
-             → propose [change] task: enable + real sweep
+             → propose task: enable + real sweep
            ≥3 notes sharing body shape, ≥2wk, passes 4Q test
-             → propose [change] task: add kind, forward-only (no migration)
+             → propose task: add kind, forward-only (no migration)
 ```

@@ -58,16 +58,16 @@ we caught the cache thrash before prod.
 ```
 
 The runtime scans every artifact body for `[[<prefix>-...>]]` patterns whose
-prefix is a registered kind (`tsk-`, `prs-`, `gol-`, ...). Code blocks
+prefix is a registered kind (`tsk-`, `prs-`, `mis-`, ...). Code blocks
 (fenced ```` ``` ```` or inline \`...\`) are skipped so examples in prose
 don't generate spurious edges.
 
-**(b) Frontmatter array** (preferred when the mention is structural — goal
+**(b) Frontmatter array** (preferred when the mention is structural — mission
 attribution, primary stakeholder):
 
 ```yaml
 # in tsk-... frontmatter
-mentions: [prs-alice, gol-fundraising-2026]
+mentions: [prs-alice, mis-fundraising-2026]
 ```
 
 **(c) Explicit graph edge** (use only when you didn't write the mention in
@@ -96,12 +96,12 @@ Use when a new artifact takes over from an old one. The old artifact is
 typically flipped to a terminal status (`superseded`, `archived`).
 
 ```bash
-loopany artifact create --kind goal --slug fundraising-2027 --title "..." --status active
-loopany artifact status gol-fundraising-2026 superseded --reason "fundraise complete; new goal"
-loopany refs add --from gol-fundraising-2027 --to gol-fundraising-2026 --relation supersedes
+loopany artifact create --kind mission --slug fundraising-2027 --title "..." --status active
+loopany artifact status mis-fundraising-2026 abandoned --reason "fundraise complete; new mission"
+loopany refs add --from mis-fundraising-2027 --to mis-fundraising-2026 --relation supersedes
 ```
 
-Same pattern for re-onboarding (new prs-self → old prs-self), goal shifts,
+Same pattern for re-onboarding (new prs-self → old prs-self), mission shifts,
 and architecture rewrites.
 
 ### `follows-up` — B is a continuation of A
@@ -163,6 +163,21 @@ ad-hoc verbs.
 `led-to` is the default temptation when you're not sure. If you find
 yourself writing it for every refs.add, ask: was this **causal** (use it),
 **responsive** (`addresses`), or just **referential** (`mentions`)?
+
+## Walking chains, not single edges
+
+`loopany refs <id>` is one hop. For the full lineage — "what fed into
+this learning, all the way back" or "what came of this signal, all the
+way forward" — use `loopany trace`:
+
+```bash
+loopany trace <id> --direction backward
+# walks led-to / addresses / supersedes / follows-up / cites
+# (mentions excluded by default — soft pointer, not lineage)
+```
+
+Output is a signed-distance timeline: negative = causes, 0 = root,
+positive = effects. Override the predicate set with `--relations csv`.
 
 ## Quick reference
 

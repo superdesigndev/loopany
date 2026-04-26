@@ -10,9 +10,9 @@ indexedFields: [status, priority, check_at]
 # task
 
 A unit of work the agent (or human) is doing. Carries its own outcome record:
-when status flips to `done`, the body must contain a `## Outcome` section
-explaining what happened. This is the substrate the self-improvement loop
-reads from.
+when status flips to `done` or `failed`, the body must contain a
+`## Outcome` section explaining what happened. This is the substrate the
+self-improvement loop reads from.
 
 ## Frontmatter
 
@@ -37,7 +37,7 @@ transitions:
 
 ## Required sections
 
-On `status: done` → body must contain `## Outcome`.
+On `status: done` or `status: failed` → body must contain `## Outcome`.
 
 ## UI
 

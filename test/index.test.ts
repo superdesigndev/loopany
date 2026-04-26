@@ -46,7 +46,7 @@ indexedFields: []
 ---
 ## Frontmatter
 \`\`\`yaml
-summary: { type: string, required: true }
+title: { type: string, required: true }
 \`\`\`
 `,
   );
@@ -65,7 +65,7 @@ describe('ArtifactIndex.build', () => {
     const { store, refs } = await makeStack();
     const t1 = await store.create('task', { title: 'a', status: 'todo' });
     const t2 = await store.create('task', { title: 'b', status: 'running' }, '', { now: t1.id.slice(4) + '+1' });
-    const s1 = await store.create('signal', { summary: 'hi' });
+    const s1 = await store.create('signal', { title: 'hi' });
 
     const idx = await ArtifactIndex.build(store, refs);
 
@@ -78,7 +78,7 @@ describe('ArtifactIndex.build', () => {
 
   test('integrates forward + reverse refs', async () => {
     const { store, refs } = await makeStack();
-    const s = await store.create('signal', { summary: 'x' });
+    const s = await store.create('signal', { title: 'x' });
     const t = await store.create('task', { title: 'y', status: 'todo' });
     await refs.append({ from: s.id, to: t.id, relation: 'led-to', actor: 'cli' });
 

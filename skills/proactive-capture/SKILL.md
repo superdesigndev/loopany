@@ -1,6 +1,6 @@
 ---
 name: loopany-proactive-capture
-description: Use immediately after substantive work concludes in a loopany-enabled session — PR shipped, incident resolved, decision made, problem noticed but not yet acted on, outcome observed. Routes to the right kind, then hands off to [[./conventions/core-artifacts.md]] (signal/task body discipline) or [[./reflect.md]] (learnings). Specifies the subagent dispatch pattern. Main session reads to filter; subagent reads to write.
+description: Use immediately after substantive work concludes in a loopany-enabled session — PR shipped, incident resolved, decision made, problem noticed but not yet acted on, outcome observed. Routes to the right kind, then hands off to [[core-artifacts/SKILL.md]] (signal/task body discipline) or [[reflect/SKILL.md]] (learnings). Specifies the subagent dispatch pattern. Main session reads to filter; subagent reads to write.
 ---
 
 # proactive-capture — record after work concludes
@@ -19,11 +19,11 @@ the right artifact after a "substantive thing just finished."
 
 | Trigger | Target kind | Body discipline |
 |---|---|---|
-| **PR shipped / merged** | `task` — prefix `[change]` if the goal was to move a metric, `[incident]` if it was a fix | [[./conventions/core-artifacts.md]] § Tasks |
-| **Incident resolved** | `task` with `[incident]` prefix | [[./conventions/core-artifacts.md]] § Tasks |
+| **PR shipped / merged** | `task` with `## Outcome` | [[core-artifacts/SKILL.md]] § Task |
+| **Incident resolved** | `task` with `## Outcome` and enough fix/root-cause context to be useful later | [[core-artifacts/SKILL.md]] § Task |
 | **Decision made** with rationale worth preserving | `note` (default), or `task --status done` if the decision *was* the deliverable | inline guidance below |
-| **Problem/need noticed, not acting now** (or pending confirmation) | `signal` | [[./conventions/core-artifacts.md]] § Signals |
-| **Outcome observed** on an existing task | **append** `## Outcome` to that task — don't create a new artifact | [[./conventions/core-artifacts.md]] § Outcome |
+| **Problem/need noticed, not acting now** (or pending confirmation) | `signal` | [[core-artifacts/SKILL.md]] § Signal |
+| **Outcome observed** on an existing task | **append** `## Outcome` to that task — don't create a new artifact | [[core-artifacts/SKILL.md]] § Outcome |
 
 "Substantive" means the event produced evidence or a decision that a
 future reader would need to find. Events that produced nothing citable
@@ -57,20 +57,20 @@ unrelated context that bleeds into a weaker Outcome. Hand off instead:
    quality-bar check.
 2. **Compose a compact context package** — 3-5 sentences:
    - What happened (concrete, observable)
-   - Why it matters (ties to goal / unblocked X / surfaced Y)
+   - Why it matters (ties to mission / unblocked X / surfaced Y)
    - Any before/after numbers, file paths, or artifact IDs already in scope
 3. **Dispatch the subagent** with the context package plus the
    instruction:
 
    > "Record this as a loopany artifact. Consult
    > `~/loopany-src/skills/RESOLVER.md` and
-   > `~/loopany-src/skills/proactive-capture.md` to pick the right
+   > `~/loopany-src/skills/proactive-capture/SKILL.md` to pick the right
    > kind and form skill. Return the artifact ID."
 
 4. **Subagent executes**:
    - Reads the resolver + this file
-   - Reads [[./conventions/core-artifacts.md]] for signal/task body shape
-     (or [[./reflect.md]] for learnings)
+   - Reads [[core-artifacts/SKILL.md]] for signal/task body shape
+     (or [[reflect/SKILL.md]] for learnings)
    - Runs `loopany artifact create --kind <X> …` with proper frontmatter
      and body
    - Returns the new artifact ID
@@ -135,7 +135,7 @@ Subagent gets a malformed trigger → writes a noise artifact → pollutes
 
 ## Cross-refs
 
-- Body discipline: [[./conventions/core-artifacts.md]] (signal + task lifecycle)
-- Learnings / proposals: [[./reflect.md]]
+- Body discipline: [[core-artifacts/SKILL.md]] (signal + task lifecycle)
+- Learnings / proposals: [[reflect/SKILL.md]]
 - Injected trigger summary in agent memory: `INSTALL_FOR_AGENTS.md` Step 4
-- Resolver entry point: [[./RESOLVER.md]]
+- Resolver entry point: [[RESOLVER.md]]

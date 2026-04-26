@@ -5,96 +5,50 @@ description: Read FIRST when working in a loopany workspace. Maps user intent to
 
 # loopany skill resolver
 
-**Read this first.** This is the dispatcher. When a user request or an
-internal decision matches a trigger below, **Read the target skill file
-before acting.** If two skills match, read both — they chain.
+Match the trigger, **Read** the target skill, then act. Two skills match → read both; they chain.
 
-Skills are markdown, not code. Every skill path is relative to the
-`loopany-src` skills root (where this file lives).
+## Conventions (read once, keep in context)
 
-## Conventions (read these once, then keep in context)
+Apply on top of every other skill:
 
-These apply to **every** artifact you create or modify:
+| Skill | When |
+|---|---|
+| [[relations/SKILL.md]] | Any `loopany refs add`, or picking a relation verb |
+| [[new-concept/SKILL.md]] | Choosing `note` / new kind / new domain |
+| [[core-artifacts/SKILL.md]] | Any `signal` or `task` lifecycle action — find the right § inside |
 
-| Skill | When it applies |
-|-------|-----------------|
-| [[./conventions/relations.md]] | Any `loopany refs add` call, or picking a relation verb |
-| [[./conventions/new-concept.md]] | Choosing between `note` / new kind / new domain; before `loopany kind propose` or before extracting a new domain from observed usage |
-| [[./conventions/core-artifacts.md]] | Any `signal` or `task` lifecycle action — create, write body, dismiss, promote, flip status |
+## Bootstrap
 
-## First run — bootstrap
+Fresh workspace (no `mission` with `status: active`) **or** user says "redo onboarding" / "reset the mission" → [[ONBOARDING.md]]. The one flow that doesn't dispatch through here.
 
-Before any on-demand dispatch, check whether the workspace has been
-initialized:
+## On-demand triggers
 
 | Trigger | Read |
 |---|---|
-| No `goal` with `status: active` exists (fresh workspace after `loopany init`) | [[../ONBOARDING.md]] — run the 5-phase setup conversation |
-| User says "redo onboarding" / "reset the goal," or the active goal no longer matches recent task work | [[../ONBOARDING.md]] § "When to re-run onboarding" |
-
-Onboarding is the one flow that runs **without** being dispatched
-through this resolver. Every other request routes through the tables
-below.
-
-## On-demand skills — match by trigger
-
-### Proactive capture — after substantive work concludes
-
-| Trigger | Read |
-|---|---|
-| Main session notices work just ended (PR shipped, incident resolved, decision made, signal noticed, outcome observed) — before dispatching | [[./proactive-capture.md]] (quality bar + subagent context) |
-| Subagent dispatched with "record this via loopany" | [[./proactive-capture.md]] (routing), then the form skill it names |
-
-### Creating / handling artifacts
-
-All `signal` and `task` lifecycle lives in [[./conventions/core-artifacts.md]].
-Section pointers below are into that one file.
-
-| Trigger (state, not phrase) | Read |
-|---|---|
-| Aware of a problem/need but **can't act now**, or **pending confirmation** | [[./conventions/core-artifacts.md]] § "Signals — when to create" |
-| Dismissing a signal, or it keeps recurring | [[./conventions/core-artifacts.md]] § "Dismissing", § "Recurring signals" |
-| "Let's do X", committing to work, `[change]` / `[incident]` | [[./conventions/core-artifacts.md]] § "Tasks — Three shapes" |
-| Writing Hypothesis / Before / Outcome on a `task` | [[./conventions/core-artifacts.md]] § "Body sections" |
-| Flipping task to `done` / `failed` / `cancelled` | [[./conventions/core-artifacts.md]] § "Status transitions" |
-| Upgrading a signal to a task | [[./conventions/core-artifacts.md]] § "Signal → Task promotion" |
-
-### Self-iteration loop
-
-| Trigger | Read |
-|---|---|
-| "reflect", "what have we learned", "improve yourself", weekly review | [[./reflect.md]] |
-| ≥ 3 `task`s flipped to `done` recently with similar Outcomes | [[./reflect.md]] |
-| Writing a `learning` or a `skill-proposal` | [[./reflect.md]] (§ Step 3, § Step 4) |
-| "accept spr-…", "reject spr-…", "let's take that proposal" | [[./proposal-review.md]] |
-| Walking through pending proposals | [[./proposal-review.md]] |
-| "is this still the right goal?", "anything structural worth locking in?", monthly review | [[./monthly-review.md]] |
-| "what's due today", "what am I forgetting", daily check-in | [[./daily-followups.md]] |
-| "what's slipping", "weekly check", "is the workspace healthy" | [[./weekly-sweep.md]] |
+| Substantive work just ended (PR shipped, incident resolved, decision made, signal/outcome observed) | [[proactive-capture/SKILL.md]] |
+| Subagent dispatched with "record this via loopany" | [[proactive-capture/SKILL.md]], then the form skill it names |
+| Anything in the `signal` / `task` lifecycle | [[core-artifacts/SKILL.md]] |
+| "reflect" / "what have we learned" / ≥3 tasks done with similar Outcomes / writing a `learning` or `skill-proposal` | [[reflect/SKILL.md]] |
+| "is this still the right mission?" / "anything structural worth locking in?" / monthly review | [[monthly-review/SKILL.md]] |
+| "what's due today" / "what am I forgetting" / daily check-in | [[daily-followups/SKILL.md]] |
+| "what's slipping" / "weekly check" / "is the workspace healthy" | [[weekly-sweep/SKILL.md]] |
 
 ## Disambiguation
 
-When multiple skills match:
-
-1. **Prefer the most specific skill.** `core-artifacts` over a vague "creating things".
-2. **Conventions apply on top of any skill.** Reading `core-artifacts.md` doesn't exempt you from `conventions/relations.md` when you then call `refs add`.
-3. **Skill chaining is explicit in each skill.** Follow the "Upgrading" / "Chain" / "Next" pointers inside a skill rather than guessing which one comes next.
-4. **When in doubt, ask the user** before committing an artifact. A bad artifact is worse than a clarifying question.
+- **Most specific wins.** `core-artifacts` over a vague "creating things".
+- **Conventions stack.** `core-artifacts` doesn't exempt you from `relations` when you call `refs add`.
+- **When in doubt, ask** before committing an artifact. A bad artifact is worse than a clarifying question.
 
 ## Anti-patterns
 
-- **Acting without reading the skill.** You remembered the gist from last session — the skill has been edited since. Re-read.
-- **Reading a skill but skipping its anti-patterns section.** That's where the failure modes live.
-- **Writing an artifact without checking if a skill applies.** The cost of reading one markdown file is much less than the cost of a malformed artifact in the record forever.
+- **Writing an artifact without checking if a skill applies** — one markdown read is far cheaper than a malformed artifact in the record forever.
+- **Skipping a skill's anti-patterns section** — that's where the failure modes live.
+- **Trusting memory over Re-Read** — skills get edited; the gist you remember may be stale.
 
-## What's not (yet) in here
+## Not yet covered
 
-These triggers don't have a skill yet. If you hit one, use judgment and
-flag it to the user as a candidate for `loopany kind propose` or a new
-skill:
+No skill exists for these — use judgment, flag as candidate for a new skill / `kind propose`:
 
-- Reading `loopany followups --due today` output and deciding what to do per item
-- Deciding whether a named entity should become a new `person` artifact or just a mention
+- Per-item handling of `loopany followups --due today`
+- Whether a named entity becomes a `person` or stays a mention
 - Writing a `brief` (daily / weekly summary)
-
-See project TODOS or ask the user if one of these is blocking you.

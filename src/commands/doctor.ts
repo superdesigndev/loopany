@@ -5,8 +5,8 @@
 //   kinds            — every kind def parses cleanly
 //   artifacts        — every frontmatter passes its kind's zod schema
 //   references       — no dangling edges (both endpoints exist)
-//   onboarding       — prs-self artifact + ≥1 active goal
-//   goal coverage    — (warn) every task mentions a goal
+//   onboarding       — prs-self artifact + ≥1 active mission
+//   mission coverage — (warn) every task mentions a mission
 //   domain coverage  — (warn) artifact domains are in enabled_domains
 //
 // What doctor does NOT do: lexical / semantic scans of body content (e.g.
@@ -113,39 +113,39 @@ export async function runDoctor(engine: Engine, args: string[]): Promise<DoctorR
   if (!idx.byId('prs-self')) {
     onboardingProblems.push('prs-self artifact missing — run onboarding (Phase 3 step 2)');
   }
-  const activeGoals = idx.byKind('goal').filter((m) => m.frontmatter.status === 'active');
-  if (activeGoals.length === 0) {
-    onboardingProblems.push('no active goal — run onboarding (Phase 3 step 3)');
+  const activeMissions = idx.byKind('mission').filter((m) => m.frontmatter.status === 'active');
+  if (activeMissions.length === 0) {
+    onboardingProblems.push('no active mission — run onboarding (Phase 3 step 3)');
   }
   checks.push({
     name: 'onboarding',
     status: onboardingProblems.length === 0 ? 'ok' : 'fail',
     detail:
       onboardingProblems.length === 0
-        ? `prs-self present, ${activeGoals.length} active goal(s)`
+        ? `prs-self present, ${activeMissions.length} active mission(s)`
         : 'incomplete',
     problems: onboardingProblems.length ? onboardingProblems : undefined,
   });
 
-  // Goal coverage — warning, not fail. Only tasks are checked; other kinds
-  // (signal, note, brief, …) are free to be goal-less. Skipped if no goals
-  // exist (onboarding catches that).
-  const goalIds = new Set(idx.byKind('goal').map((m) => m.id));
-  if (goalIds.size > 0) {
+  // Mission coverage — warning, not fail. Only tasks are checked; other kinds
+  // (signal, note, brief, …) are free to be mission-less. Skipped if no
+  // missions exist (onboarding catches that).
+  const missionIds = new Set(idx.byKind('mission').map((m) => m.id));
+  if (missionIds.size > 0) {
     const orphans: string[] = [];
     for (const meta of idx.byKind('task')) {
       const mentions = (meta.frontmatter.mentions as string[] | undefined) ?? [];
-      if (!mentions.some((m) => goalIds.has(m))) {
-        orphans.push(`${meta.id}: no goal mention`);
+      if (!mentions.some((m) => missionIds.has(m))) {
+        orphans.push(`${meta.id}: no mission mention`);
       }
     }
     checks.push({
-      name: 'goal coverage',
+      name: 'mission coverage',
       status: orphans.length === 0 ? 'ok' : 'warn',
       detail:
         orphans.length === 0
-          ? 'all tasks mention a goal'
-          : `${orphans.length} task(s) without goal mention`,
+          ? 'all tasks mention a mission'
+          : `${orphans.length} task(s) without mission mention`,
       problems: orphans.length ? orphans : undefined,
     });
   }

@@ -1,6 +1,6 @@
 ---
 name: loopany-weekly-sweep
-description: Use on weekly cadence or when the user says "what's slipping" / "weekly check" / "is the workspace healthy". Three problems it sweeps: drift (`loopany doctor`), slippage (overdue `check_at`), parking lots (running tasks ≥14d, active signals ≥7d, pending proposals). Forces closure on stuck artifacts. Distinct from the daily [[./daily-followups.md]].
+description: Use on weekly cadence or when the user says "what's slipping" / "weekly check" / "is the workspace healthy". Three problems it sweeps: drift (`loopany doctor`), slippage (overdue `check_at`), parking lots (running tasks ≥14d, active signals ≥7d, pending proposals). Forces closure on stuck artifacts. Distinct from the daily [[daily-followups/SKILL.md]].
 ---
 
 # weekly-sweep — drift + stuck-artifact sweep
@@ -11,7 +11,7 @@ Three problems loopany workspaces develop silently:
    fail validation, references point nowhere. `loopany doctor` catches
    these.
 2. **Slippage** — items whose `check_at` slid past today, never
-   addressed. Daily [[./daily-followups.md]] stays focused on today; this is
+   addressed. Daily [[daily-followups/SKILL.md]] stays focused on today; this is
    where last week's misses come back into view.
 3. **Parking lots** — artifacts sitting in non-terminal status with no
    `check_at` and no recent activity. Running tasks, active signals,
@@ -67,10 +67,10 @@ than the original.
 
 **B. Outdated — question no longer applies.** Retire via the right
 kind's terminal state: `task cancelled --reason`, `learning
-superseded`, etc. Use [[./conventions/core-artifacts.md]] for tasks.
+superseded`, etc. Use [[core-artifacts/SKILL.md]] for tasks.
 
 **C. Shouldn't have had a `check_at`.** Remove the date with a brief
-note. Repeated mis-scheduling is fodder for [[./reflect.md]].
+note. Repeated mis-scheduling is fodder for [[reflect/SKILL.md]].
 
 **D. Zombie — keeps coming back.** Pushed ≥2 times with no progress,
 or in overdue ≥2 consecutive sweeps. The user has seen it and chosen
@@ -94,7 +94,7 @@ For any task running ≥14 days with no recent append:
   external work, or set a near-term `check_at` with a concrete
   unblock condition
 - **Abandoned** → `failed` or `cancelled` with Outcome per
-  [[./conventions/core-artifacts.md]]
+  [[core-artifacts/SKILL.md]]
 
 Don't accept "still working on it" as closure — that's how `running`
 turns into a parking lot.
@@ -107,8 +107,8 @@ loopany artifact list --kind signal --status active
 
 For any signal active ≥7 days without upgrade or dismissal:
 
-- **Real, going to act** → upgrade to task via [[./conventions/core-artifacts.md]] § Signal → Task promotion
-- **Real, not acting** → dismiss with reason (so [[./reflect.md]] can
+- **Real, going to act** → upgrade to task via [[core-artifacts/SKILL.md]] § Signal → Task promotion
+- **Real, not acting** → dismiss with reason (so [[reflect/SKILL.md]] can
   see it if it recurs)
 - **Wasn't really a signal** → delete
 
@@ -123,8 +123,8 @@ loopany artifact list --kind skill-proposal --status pending
 - Count > 0 → mention in the weekly report; these are waiting on
   the user.
 - Count > 5 → the self-improvement loop is blocked on triage. Nudge
-  the user to sit with [[./proposal-review.md]] before another
-  [[./reflect.md]] run adds more.
+  the user to walk the pending queue before another
+  [[reflect/SKILL.md]] run adds more.
 
 ## Step 4 — Report and close
 
@@ -137,7 +137,7 @@ Parking lot: 1 task running 21d, 3 active signals ≥1wk, 4 pending proposals
 ```
 
 Per-item prompts for anything ambiguous. **Same closure gate as
-[[./daily-followups.md]]**: every surfaced item ends this session in
+[[daily-followups/SKILL.md]]**: every surfaced item ends this session in
 `resolved / re-scheduled / retired`. Zombies are the failure mode
 this skill exists to prevent; don't become the source of new ones.
 
@@ -146,7 +146,7 @@ this skill exists to prevent; don't become the source of new ones.
 If this pass resolved ≥3 items (any mix of done / cancelled /
 superseded / dismissed), that's a batch worth reflecting on. Either
 nudge the user with "want to run a reflection?" or, on agent
-platforms, make sure [[./reflect.md]] is on this week's cron.
+platforms, make sure [[reflect/SKILL.md]] is on this week's cron.
 
 ## Anti-patterns
 
@@ -173,7 +173,7 @@ condition. If it can't earn that, it's abandoned.
 ### ❌ Rescheduling without a reason
 
 Every `check_at` push needs a reason — same rule as
-[[./daily-followups.md]].
+[[daily-followups/SKILL.md]].
 
 ## Quick reference
 

@@ -34,7 +34,8 @@ file paths — is yours, not the user's. Translate, don't expose. "Enable
 the `crm` pack" becomes "I'll set myself up to help with your sales
 pipeline." Slug picking, domain names, status fields — just do them
 silently. The user should feel they've talked to someone who gets them,
-not configured a tool.
+not configured a tool. Same rule for setup narration: no "reading X",
+"Phase N", "now I'll" — work silently, then speak.
 
 ## Step 1 — Install
 
@@ -69,12 +70,12 @@ After init, `~/loopany/` looks like:
 │   ├── task.md            # status machine + frontmatter schema
 │   ├── signal.md
 │   ├── person.md
-│   ├── goal.md
+│   ├── mission.md
 │   └── brief.md
 ├── artifacts/
 │   ├── {YYYY-MM}/         # date-bucketed kinds (task, signal, brief)
 │   ├── people/            # flat-storage (person)
-│   └── goals/             # flat-storage (goal)
+│   └── missions/          # flat-storage (mission)
 └── references.jsonl       # append-only graph edges
 ```
 
@@ -82,7 +83,7 @@ After init, `~/loopany/` looks like:
 
 Read `ONBOARDING.md` and run the conversation.
 
-If any `goal` artifact already exists in `~/loopany/artifacts/goals/`,
+If any `mission` artifact already exists in `~/loopany/artifacts/missions/`,
 onboarding has been run — skip this step.
 
 ## Step 4 — Decide the cadence (do not pull the user in)
@@ -102,10 +103,10 @@ of `ONBOARDING.md`.
 
 | Cadence | Skill                       | What it does                                                        |
 |---------|-----------------------------|---------------------------------------------------------------------|
-| Daily   | `skills/daily-followups.md` | Surface today's due items; close each with a state transition       |
-| Weekly  | `skills/weekly-sweep.md`    | Doctor pass + overdue sweep + parking-lot sweep (stuck artifacts)   |
-| Weekly  | `skills/reflect.md`         | Reflect on fresh outcomes; write learnings + skill-proposals        |
-| Monthly | `skills/monthly-review.md`  | Goal-drift + structural-drift (new domain / new kind) detection     |
+| Daily   | `skills/daily-followups/SKILL.md` | Surface today's due items; close each with a state transition       |
+| Weekly  | `skills/weekly-sweep/SKILL.md`    | Doctor pass + overdue sweep + parking-lot sweep (stuck artifacts)   |
+| Weekly  | `skills/reflect/SKILL.md`         | Reflect on fresh outcomes; write learnings + skill-proposals        |
+| Monthly | `skills/monthly-review/SKILL.md`  | Mission-drift + structural-drift (new domain / new kind) detection  |
 
 ### §A Agent platforms with durable cron (Hermes, OpenClaw, …)
 
@@ -128,7 +129,7 @@ this during onboarding is a waste — assume it and move on.
 **Default behavior on coding CLIs**: don't register anything. The
 agent prompts at session boundaries instead — open a session, check
 `loopany followups --due today`; near the end of a week, propose a
-sweep + reflect; near month-end, propose a goal review. The user is
+sweep + reflect; near month-end, propose a mission review. The user is
 the final backup, which is fine.
 
 A "wire up real cron" task (system-level launchd / crontab + a thin
@@ -139,14 +140,9 @@ a task only if the user spontaneously asks for durable scheduling.
 
 ### What the user actually hears
 
-One sentence at the end of onboarding (Phase 4 of `ONBOARDING.md`):
-
-> I'll check in at the start of each day on what's due, propose a
-> sweep + reflect at week's end, and surface goal-drift around
-> month's end.
-
-That's the entire user-facing cadence story. No registration prompts,
-no a/b/c menus, no host-quality discussions.
+One sentence at the end of onboarding — see `ONBOARDING.md` § Phase 4
+for the canonical line. That's the entire user-facing cadence story.
+No registration prompts, no a/b/c menus, no host-quality discussions.
 
 ## Step 5 — Load the skill resolver
 
@@ -230,19 +226,18 @@ file exists but didn't inject — check the host's memory-scope rules.
 | Path | Purpose |
 |---|---|
 | `skills/RESOLVER.md` | Dispatcher — read this first |
-| `skills/conventions/relations.md` | Relation verbs for `refs add` |
-| `skills/conventions/new-concept.md` | Note vs new kind vs new domain decision |
-| `skills/conventions/core-artifacts.md` | Signal + task lifecycle: when to write, body shape, status transitions, signal→task promotion |
-| `skills/reflect.md` | Reflection loop — write learnings and skill-proposals |
-| `skills/proposal-review.md` | Accept / reject skill-proposals |
-| `skills/proactive-capture.md` | When + how to record work after it concludes (triggers, quality bar, subagent pattern) |
-| `skills/daily-followups.md` | Daily check-in on today's due `check_at` items |
-| `skills/weekly-sweep.md` | Weekly integrity sweep: doctor + overdue + parking lots |
-| `skills/monthly-review.md` | Monthly goal-drift + structural-drift review |
+| `skills/relations/SKILL.md` | Relation verbs for `refs add` |
+| `skills/new-concept/SKILL.md` | Note vs new kind vs new domain decision |
+| `skills/core-artifacts/SKILL.md` | Signal + task lifecycle: when to write, body shape, status transitions, signal→task promotion |
+| `skills/reflect/SKILL.md` | Reflection loop — write learnings and skill-proposals |
+| `skills/proactive-capture/SKILL.md` | When + how to record work after it concludes (triggers, quality bar, subagent pattern) |
+| `skills/daily-followups/SKILL.md` | Daily check-in on today's due `check_at` items |
+| `skills/weekly-sweep/SKILL.md` | Weekly integrity sweep: doctor + overdue + parking lots |
+| `skills/monthly-review/SKILL.md` | Monthly mission-drift + structural-drift review |
 
 You do **not** need to memorize these. You need to remember to read
 RESOLVER first. Trigger discipline, quality bar, and subagent dispatch
-pattern all live in `skills/proactive-capture.md` — the resolver
+pattern all live in `skills/proactive-capture/SKILL.md` — the resolver
 routes to it.
 
 ## Step 6 — Verify
@@ -251,12 +246,9 @@ Run `loopany doctor`. Exit 0 = healthy, exit 1 = something to fix; the
 report lists each failed check and the offending file or edge. Add
 `--format json` for machine consumption.
 
-## Daily use
+End with the canonical cadence note:
 
-This file has no command manual. Use:
-
-- `loopany --help` / `loopany <cmd> --help` for CLI syntax
-- `~/loopany-src/skills/RESOLVER.md` for which skill to read before any op
-
-Conventions, status machines, domain rules, and per-kind guidance live
-in skill files dispatched through RESOLVER — not duplicated here.
+> I'll check in at the start of each day on what's due, propose a
+> sweep + reflect at week's end, and surface mission-drift around
+> month's end. You can run `loopany factory` anytime for a visual
+> map of what's in here.

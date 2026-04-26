@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { extractLinks } from '../src/core/link-parser.ts';
 
-const PREFIXES = new Set(['tsk-', 'prs-', 'gol-', 'sig-']);
+const PREFIXES = new Set(['tsk-', 'prs-', 'mis-', 'sig-']);
 
 describe('extractLinks', () => {
   test('finds a single link with a known prefix', () => {

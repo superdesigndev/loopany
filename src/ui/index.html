@@ -423,9 +423,9 @@
     const TITLE_CAP = 110;
 
     // Semantic kind order — used to stack artifacts inside a date column,
-    // and as a stable tiebreaker for the top goal row.
+    // and as a stable tiebreaker for the top mission row.
     const KIND_FLOW_RANK = {
-      goal: 0,
+      mission: 0,
       signal: 1,
       task: 2,
       brief: 3,
@@ -446,7 +446,7 @@
     // specifically the --k-* / --s-* / --r-* tokens.
     // Hex → RGB ints for Kaplay.
     const KIND_COLOR = {
-      goal:             [242, 193, 78],    // #F2C14E amber
+      mission:          [242, 193, 78],    // #F2C14E amber
       signal:           [126, 200, 255],   // #7EC8FF powder blue
       task:             [184, 164, 245],   // #B8A4F5 lavender
       brief:            [245, 192, 138],   // #F5C08A peach
@@ -459,7 +459,7 @@
 
     // Short codes shown at top-right of each card (mirrors the mock).
     const KIND_TAG = {
-      goal:             'GOAL',
+      mission:          'MIS',
       signal:           'SIG',
       task:             'TSK',
       brief:            'BRF',
@@ -472,7 +472,7 @@
     // Pixel-art icons, 16×16, color baked per kind. Rendered as Kaplay
     // sprites loaded from inline data-URIs (no extra HTTP routes).
     const KIND_ICON_SVG = {
-      goal: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><rect x="2" y="2" width="12" height="12" fill="none" stroke="#F2C14E" stroke-width="1.4" shape-rendering="crispEdges"/><rect x="5" y="5" width="6" height="6" fill="none" stroke="#F2C14E" stroke-width="1.4" shape-rendering="crispEdges"/><rect x="7" y="7" width="2" height="2" fill="#F2C14E" shape-rendering="crispEdges"/></svg>`,
+      mission: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><rect x="2" y="2" width="12" height="12" fill="none" stroke="#F2C14E" stroke-width="1.4" shape-rendering="crispEdges"/><rect x="5" y="5" width="6" height="6" fill="none" stroke="#F2C14E" stroke-width="1.4" shape-rendering="crispEdges"/><rect x="7" y="7" width="2" height="2" fill="#F2C14E" shape-rendering="crispEdges"/></svg>`,
       signal: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="#7EC8FF" shape-rendering="crispEdges"><rect x="7" y="3" width="2" height="8"/><rect x="4" y="5" width="1" height="1"/><rect x="11" y="5" width="1" height="1"/><rect x="3" y="6" width="1" height="1"/><rect x="12" y="6" width="1" height="1"/><rect x="5" y="4" width="1" height="1"/><rect x="10" y="4" width="1" height="1"/><rect x="6" y="11" width="4" height="1"/></svg>`,
       task: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><rect x="2" y="3" width="12" height="10" fill="none" stroke="#B8A4F5" stroke-width="1.4" shape-rendering="crispEdges"/><g fill="#B8A4F5" shape-rendering="crispEdges"><rect x="4" y="6" width="3" height="1"/><rect x="4" y="9" width="2" height="1"/><rect x="9" y="6" width="3" height="1"/><rect x="9" y="9" width="3" height="1"/></g></svg>`,
       brief: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><rect x="3" y="2" width="10" height="12" fill="none" stroke="#F5C08A" stroke-width="1.4" shape-rendering="crispEdges"/><g fill="#F5C08A" shape-rendering="crispEdges"><rect x="5" y="5" width="6" height="1"/><rect x="5" y="8" width="6" height="1"/><rect x="5" y="11" width="4" height="1"/></g></svg>`,
@@ -485,7 +485,7 @@
     // Emoji fallback for HUD (DOM, not Kaplay) — keeps the text side
     // lightweight without loading <img>s.
     const KIND_ICON_EMOJI = {
-      goal: '🎯', signal: '📡', task: '⚙', brief: '📄',
+      mission: '🎯', signal: '📡', task: '⚙', brief: '📄',
       learning: '💡', 'skill-proposal': '🧬', person: '👤', note: '📝',
     };
 
@@ -646,7 +646,7 @@
     // ==========================================================
     //
     // Three regions on the world:
-    //   · Top strip   — every `goal` on one horizontal row
+    //   · Top strip   — every `mission` on one horizontal row
     //   · Left strip  — entity kinds (person, and similar non-temporal
     //                   kinds) stacked top-down
     //   · Date grid   — everything else: one column per calendar day,
@@ -658,13 +658,13 @@
     // stack vertically in kind order — signal, task, brief, learning,
     // skill-proposal, note — so a day's "flow" reads top-down inside
     // the column and oldest→newest across columns.
-    const TOP_ROW_KINDS = new Set(['goal']);
+    const TOP_ROW_KINDS = new Set(['mission']);
     const LEFT_COL_KINDS = new Set(['person']);
     const GRID_COL_GAP = 96;      // gap between adjacent date blocks
     const GRID_ROW_GAP = 64;
     const GRID_MARGIN = 160;
     const INTRA_COL_GAP = 44;     // gap between the two columns inside one date
-    // Extra breathing room between the non-temporal strips (top goals,
+    // Extra breathing room between the non-temporal strips (top missions,
     // left entities) and the date grid. Larger than a normal block gap
     // so the user can clearly tell "these are *outside* the timeline".
     const STRIP_EXTRA_GAP = 96;
@@ -681,11 +681,11 @@
       }
 
       // Partition
-      const goals = [];
+      const missions = [];
       const entities = [];
       const byDate = new Map();  // 'YYYY-MM-DD' → [...nodes]
       for (const n of graph.nodes) {
-        if (TOP_ROW_KINDS.has(n.kind)) goals.push(n);
+        if (TOP_ROW_KINDS.has(n.kind)) missions.push(n);
         else if (LEFT_COL_KINDS.has(n.kind)) entities.push(n);
         else {
           const d = (n.createdAt || '').slice(0, 10) || 'undated';
@@ -696,7 +696,7 @@
       }
 
       const byCreated = (a, b) => (a.createdAt || '').localeCompare(b.createdAt || '');
-      goals.sort(byCreated);
+      missions.sort(byCreated);
       entities.sort(byCreated);
       const dates = [...byDate.keys()].sort();
       for (const d of dates) {
@@ -714,26 +714,26 @@
       const gridX = GRID_MARGIN + leftStripW;
 
       const topY = GRID_MARGIN;
-      const topStripH = goals.length > 0
+      const topStripH = missions.length > 0
         ? CARD_H + GRID_ROW_GAP + STRIP_EXTRA_GAP
         : 0;
       const gridY = GRID_MARGIN + topStripH;
 
       // One date block = two card columns with INTRA_COL_GAP between them,
       // plus GRID_COL_GAP to the next block.
-      const goalPitch = CARD_W + GRID_COL_GAP;
+      const missionPitch = CARD_W + GRID_COL_GAP;
       const blockWidth = 2 * CARD_W + INTRA_COL_GAP;
       const blockPitch = blockWidth + GRID_COL_GAP;
       const rowPitch = CARD_H + GRID_ROW_GAP;
 
       const border = (k) => KIND_COLOR[k] ?? KIND_COLOR_FALLBACK;
 
-      // Goals across the top — one card wide each, aligned over the first
+      // Missions across the top — one card wide each, aligned over the first
       // date block so the topmost row reads as "what we're aiming at"
       // above "what we did on each day".
-      goals.forEach((n, i) => {
+      missions.forEach((n, i) => {
         positions.set(n.id, {
-          x: gridX + i * goalPitch,
+          x: gridX + i * missionPitch,
           y: topY,
           borderColor: border(n.kind),
           blockKey: null,
@@ -784,11 +784,11 @@
         });
       });
 
-      const goalsRight = goals.length > 0 ? gridX + goals.length * goalPitch : gridX;
+      const missionsRight = missions.length > 0 ? gridX + missions.length * missionPitch : gridX;
       const datesRight = dates.length > 0
         ? gridX + (dates.length - 1) * blockPitch + blockWidth
         : gridX;
-      const contentRight = Math.max(goalsRight, datesRight);
+      const contentRight = Math.max(missionsRight, datesRight);
       const entitiesBottom = entities.length > 0
         ? gridY + entities.length * rowPitch
         : gridY;
@@ -1504,8 +1504,8 @@
       const hud = document.getElementById('hud');
       const nodeById = new Map(graph.nodes.map((n) => [n.id, n]));
 
-      // Edges terminating at a goal are hidden by default. Goals tend to
-      // accrete many references (caused-by, mentions, cites) and drawing
+      // Edges terminating at a mission are hidden by default. Missions tend
+      // to accrete many references (caused-by, mentions, cites) and drawing
       // the whole fan-in at once buries the foreground flow. They become
       // visible once either endpoint is "active" — the player is near it,
       // or it's been clicked. Visibility is recomputed each frame from the
@@ -1526,7 +1526,7 @@
 
       function isEdgeVisible(edge, activeIds) {
         const toNode = nodeById.get(edge.to);
-        if (toNode?.kind !== 'goal') return true;
+        if (toNode?.kind !== 'mission') return true;
         return activeIds.has(edge.from) || activeIds.has(edge.to);
       }
 
@@ -1552,7 +1552,7 @@
         focused = best;
 
         // Mouse-hovered edge — convert to world space in case of camera offset.
-        // Hidden edges (e.g. default-hidden goal incomings) are not hoverable.
+        // Hidden edges (e.g. default-hidden mission incomings) are not hoverable.
         const mw = toWorld ? toWorld(mousePos()) : mousePos();
         const activeIds = collectActiveIds();
         const hoverable = graph.edges.filter((e) => isEdgeVisible(e, activeIds));

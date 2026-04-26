@@ -31,12 +31,12 @@ export async function runInit(): Promise<{ root: string; created: string[]; need
     created.push(dst);
   }
 
-  const needsOnboarding = !hasAnyGoal(root);
+  const needsOnboarding = !hasAnyMission(root);
   return { root, created, needsOnboarding };
 }
 
-function hasAnyGoal(root: string): boolean {
-  const dir = join(root, 'artifacts', 'goals');
+function hasAnyMission(root: string): boolean {
+  const dir = join(root, 'artifacts', 'missions');
   if (!existsSync(dir)) return false;
   return readdirSync(dir).some((f) => f.endsWith('.md'));
 }

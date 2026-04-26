@@ -23,8 +23,8 @@ describe('loopany init', () => {
     const kinds = readdirSync(join(ws, 'kinds'));
     expect(kinds.sort()).toEqual([
       'brief.md',
-      'goal.md',
       'learning.md',
+      'mission.md',
       'note.md',
       'person.md',
       'signal.md',
@@ -40,11 +40,11 @@ describe('loopany init', () => {
     expect(r.code).toBe(0);
   });
 
-  test('prints onboarding hint when no active goal exists', async () => {
+  test('prints onboarding hint when no active mission exists', async () => {
     const ws = newWorkspace();
     const r = await runCli(ws, 'init');
     expect(r.stdout).toContain('ONBOARDING');
-    expect(r.stdout.toLowerCase()).toContain('goal');
+    expect(r.stdout.toLowerCase()).toContain('mission');
   });
 
   test('writes an audit entry on init', async () => {
@@ -57,12 +57,12 @@ describe('loopany init', () => {
     expect(entry.ts).toMatch(/^\d{4}-\d{2}-\d{2}T/);
   });
 
-  test('does not nag once a goal artifact exists', async () => {
+  test('does not nag once a mission artifact exists', async () => {
     const ws = newWorkspace();
     await runCli(ws, 'init');
     await runCli(
       ws, 'artifact', 'create',
-      '--kind', 'goal', '--slug', 'ship-v1',
+      '--kind', 'mission', '--slug', 'ship-v1',
       '--title', 'Ship loopany v1', '--status', 'active',
     );
     const r = await runCli(ws, 'init');
@@ -79,8 +79,8 @@ describe('loopany kind list', () => {
     const kinds = JSON.parse(r.stdout);
     expect(kinds.map((k: { kind: string }) => k.kind).sort()).toEqual([
       'brief',
-      'goal',
       'learning',
+      'mission',
       'note',
       'person',
       'signal',
@@ -294,12 +294,25 @@ describe('loopany artifact get', () => {
       '--kind', 'task', '--title', 'Hello', '--status', 'todo',
     );
     const id = JSON.parse(create.stdout).id;
+    writeFileSync(
+      join(ws, 'audit.jsonl'),
+      JSON.stringify({ ts: new Date().toISOString(), op: 'artifact.get', id, actor: 'cli', duration_ms: 1 }) + '\n',
+      { flag: 'a' },
+    );
 
     const r = await runCli(ws, 'artifact', 'get', id, '--format', 'json');
     expect(r.code).toBe(0);
     const obj = JSON.parse(r.stdout);
     expect(obj.id).toBe(id);
     expect(obj.frontmatter.title).toBe('Hello');
+    const ops = obj.audit.map((e: { op: string }) => e.op);
+    expect(ops).toContain('artifact.create');
+    expect(ops).not.toContain('artifact.get');
+    const createAudit = obj.audit.find((e: { op: string }) => e.op === 'artifact.create');
+    expect(createAudit.ts).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/);
+    expect(createAudit.id).toBeUndefined();
+    expect(createAudit.actor).toBeUndefined();
+    expect(createAudit.duration_ms).toBeUndefined();
   });
 
   test('exits non-zero on missing id', async () => {
@@ -416,7 +429,7 @@ describe('loopany artifact list', () => {
     expect(items.map((m: { frontmatter: { title: string } }) => m.frontmatter.title)).toEqual(['a']);
   });
 
-  test('--contains matches frontmatter string values (title, summary)', async () => {
+  test('--contains matches frontmatter string values (title)', async () => {
     const ws = await init();
     // Title contains "orbit" but body doesn't
     await runCli(ws, 'artifact', 'create', '--kind', 'task', '--title', 'Fix orbit drift', '--status', 'todo', '--content', 'see linked signal');
@@ -493,7 +506,7 @@ describe('loopany artifact status', () => {
 describe('loopany refs', () => {
   test('add via --to flag and query out direction', async () => {
     const ws = await init();
-    const s = JSON.parse((await runCli(ws, 'artifact', 'create', '--kind', 'signal', '--summary', 'noticed X')).stdout);
+    const s = JSON.parse((await runCli(ws, 'artifact', 'create', '--kind', 'signal', '--title', 'noticed X')).stdout);
     const t = JSON.parse((await runCli(ws, 'artifact', 'create', '--kind', 'task', '--title', 'follow X', '--status', 'todo')).stdout);
 
     const add = await runCli(ws, 'refs', 'add', '--from', s.id, '--to', t.id, '--relation', 'led-to');
@@ -520,6 +533,141 @@ describe('loopany refs', () => {
     const r = await runCli(ws, 'refs', b.id, '--direction', 'both');
     const edges = JSON.parse(r.stdout);
     expect(edges.length).toBe(2);
+  });
+
+  test('--depth 2 walks two hops along --direction out', async () => {
+    const ws = await init();
+    const a = JSON.parse((await runCli(ws, 'artifact', 'create', '--kind', 'task', '--title', 'A', '--status', 'todo')).stdout);
+    const b = JSON.parse((await runCli(ws, 'artifact', 'create', '--kind', 'task', '--title', 'B', '--status', 'todo')).stdout);
+    const c = JSON.parse((await runCli(ws, 'artifact', 'create', '--kind', 'task', '--title', 'C', '--status', 'todo')).stdout);
+    await runCli(ws, 'refs', 'add', '--from', a.id, '--to', b.id, '--relation', 'led-to');
+    await runCli(ws, 'refs', 'add', '--from', b.id, '--to', c.id, '--relation', 'led-to');
+
+    const depth1 = JSON.parse((await runCli(ws, 'refs', a.id, '--direction', 'out', '--depth', '1')).stdout);
+    expect(depth1.map((e: { to: string }) => e.to)).toEqual([b.id]);
+
+    const depth2 = JSON.parse((await runCli(ws, 'refs', a.id, '--direction', 'out', '--depth', '2')).stdout);
+    const tos = depth2.map((e: { to: string }) => e.to).sort();
+    expect(tos).toEqual([b.id, c.id].sort());
+  });
+
+  test('--depth terminates on cycles without duplicate edges', async () => {
+    const ws = await init();
+    const a = JSON.parse((await runCli(ws, 'artifact', 'create', '--kind', 'task', '--title', 'A', '--status', 'todo')).stdout);
+    const b = JSON.parse((await runCli(ws, 'artifact', 'create', '--kind', 'task', '--title', 'B', '--status', 'todo')).stdout);
+    await runCli(ws, 'refs', 'add', '--from', a.id, '--to', b.id, '--relation', 'led-to');
+    await runCli(ws, 'refs', 'add', '--from', b.id, '--to', a.id, '--relation', 'led-to');
+
+    const r = JSON.parse((await runCli(ws, 'refs', a.id, '--direction', 'out', '--depth', '5')).stdout);
+    expect(r.length).toBe(2);
+  });
+
+  test('--depth 2 with --relation prunes off-relation hops', async () => {
+    const ws = await init();
+    const a = JSON.parse((await runCli(ws, 'artifact', 'create', '--kind', 'task', '--title', 'A', '--status', 'todo')).stdout);
+    const b = JSON.parse((await runCli(ws, 'artifact', 'create', '--kind', 'task', '--title', 'B', '--status', 'todo')).stdout);
+    const c = JSON.parse((await runCli(ws, 'artifact', 'create', '--kind', 'task', '--title', 'C', '--status', 'todo')).stdout);
+    await runCli(ws, 'refs', 'add', '--from', a.id, '--to', b.id, '--relation', 'led-to');
+    await runCli(ws, 'refs', 'add', '--from', b.id, '--to', c.id, '--relation', 'mentions');
+
+    const r = JSON.parse((await runCli(ws, 'refs', a.id, '--direction', 'out', '--depth', '2', '--relation', 'led-to')).stdout);
+    expect(r.length).toBe(1);
+    expect(r[0].to).toBe(b.id);
+  });
+
+  test('--depth rejects non-positive integers', async () => {
+    const ws = await init();
+    const a = JSON.parse((await runCli(ws, 'artifact', 'create', '--kind', 'task', '--title', 'A', '--status', 'todo')).stdout);
+    const r = await runCli(ws, 'refs', a.id, '--depth', '0');
+    expect(r.code).not.toBe(0);
+    expect(r.stderr).toContain('Invalid --depth');
+  });
+});
+
+describe('loopany trace', () => {
+  test('walks led-to forward and backward from a middle node', async () => {
+    const ws = await init();
+    const a = JSON.parse((await runCli(ws, 'artifact', 'create', '--kind', 'signal', '--title', 'A')).stdout);
+    const b = JSON.parse((await runCli(ws, 'artifact', 'create', '--kind', 'task', '--title', 'B', '--status', 'todo')).stdout);
+    const c = JSON.parse((await runCli(ws, 'artifact', 'create', '--kind', 'learning', '--title', 'C')).stdout);
+    await runCli(ws, 'refs', 'add', '--from', a.id, '--to', b.id, '--relation', 'led-to');
+    await runCli(ws, 'refs', 'add', '--from', b.id, '--to', c.id, '--relation', 'led-to');
+
+    const r = JSON.parse((await runCli(ws, 'trace', b.id)).stdout);
+    expect(r.root).toBe(b.id);
+    const byId: Record<string, number> = {};
+    for (const n of r.nodes) byId[n.id] = n.distance;
+    expect(byId[a.id]).toBe(-1);
+    expect(byId[b.id]).toBe(0);
+    expect(byId[c.id]).toBe(1);
+    expect(r.edges.length).toBe(2);
+    // Sorted ascending by distance — cause first, root middle, effect last.
+    expect(r.nodes.map((n: { id: string }) => n.id)).toEqual([a.id, b.id, c.id]);
+  });
+
+  test('--direction forward only', async () => {
+    const ws = await init();
+    const a = JSON.parse((await runCli(ws, 'artifact', 'create', '--kind', 'signal', '--title', 'A')).stdout);
+    const b = JSON.parse((await runCli(ws, 'artifact', 'create', '--kind', 'task', '--title', 'B', '--status', 'todo')).stdout);
+    const c = JSON.parse((await runCli(ws, 'artifact', 'create', '--kind', 'learning', '--title', 'C')).stdout);
+    await runCli(ws, 'refs', 'add', '--from', a.id, '--to', b.id, '--relation', 'led-to');
+    await runCli(ws, 'refs', 'add', '--from', b.id, '--to', c.id, '--relation', 'led-to');
+
+    const r = JSON.parse((await runCli(ws, 'trace', b.id, '--direction', 'forward')).stdout);
+    expect(r.nodes.map((n: { id: string }) => n.id)).toEqual([b.id, c.id]);
+  });
+
+  test('default predicate set excludes mentions', async () => {
+    const ws = await init();
+    const a = JSON.parse((await runCli(ws, 'artifact', 'create', '--kind', 'task', '--title', 'A', '--status', 'todo')).stdout);
+    const b = JSON.parse((await runCli(ws, 'artifact', 'create', '--kind', 'task', '--title', 'B', '--status', 'todo')).stdout);
+    await runCli(ws, 'refs', 'add', '--from', a.id, '--to', b.id, '--relation', 'mentions');
+
+    const r = JSON.parse((await runCli(ws, 'trace', a.id)).stdout);
+    expect(r.edges.length).toBe(0);
+    expect(r.nodes.map((n: { id: string }) => n.id)).toEqual([a.id]);
+  });
+
+  test('--relations opts in to additional predicates', async () => {
+    const ws = await init();
+    const a = JSON.parse((await runCli(ws, 'artifact', 'create', '--kind', 'task', '--title', 'A', '--status', 'todo')).stdout);
+    const b = JSON.parse((await runCli(ws, 'artifact', 'create', '--kind', 'task', '--title', 'B', '--status', 'todo')).stdout);
+    await runCli(ws, 'refs', 'add', '--from', a.id, '--to', b.id, '--relation', 'mentions');
+
+    const r = JSON.parse((await runCli(ws, 'trace', a.id, '--relations', 'mentions')).stdout);
+    expect(r.nodes.map((n: { id: string }) => n.id).sort()).toEqual([a.id, b.id].sort());
+  });
+
+  test('terminates on cycles', async () => {
+    const ws = await init();
+    const a = JSON.parse((await runCli(ws, 'artifact', 'create', '--kind', 'task', '--title', 'A', '--status', 'todo')).stdout);
+    const b = JSON.parse((await runCli(ws, 'artifact', 'create', '--kind', 'task', '--title', 'B', '--status', 'todo')).stdout);
+    await runCli(ws, 'refs', 'add', '--from', a.id, '--to', b.id, '--relation', 'led-to');
+    await runCli(ws, 'refs', 'add', '--from', b.id, '--to', a.id, '--relation', 'led-to');
+
+    const r = JSON.parse((await runCli(ws, 'trace', a.id, '--direction', 'forward')).stdout);
+    // Two distinct edges, two nodes; no infinite loop.
+    expect(r.edges.length).toBe(2);
+    expect(r.nodes.length).toBe(2);
+  });
+
+  test('--max-depth caps the walk', async () => {
+    const ws = await init();
+    const a = JSON.parse((await runCli(ws, 'artifact', 'create', '--kind', 'task', '--title', 'A', '--status', 'todo')).stdout);
+    const b = JSON.parse((await runCli(ws, 'artifact', 'create', '--kind', 'task', '--title', 'B', '--status', 'todo')).stdout);
+    const c = JSON.parse((await runCli(ws, 'artifact', 'create', '--kind', 'task', '--title', 'C', '--status', 'todo')).stdout);
+    await runCli(ws, 'refs', 'add', '--from', a.id, '--to', b.id, '--relation', 'led-to');
+    await runCli(ws, 'refs', 'add', '--from', b.id, '--to', c.id, '--relation', 'led-to');
+
+    const r = JSON.parse((await runCli(ws, 'trace', a.id, '--direction', 'forward', '--max-depth', '1')).stdout);
+    expect(r.nodes.map((n: { id: string }) => n.id)).toEqual([a.id, b.id]);
+  });
+
+  test('rejects unknown id', async () => {
+    const ws = await init();
+    const r = await runCli(ws, 'trace', 'tsk-99999999-999999');
+    expect(r.code).not.toBe(0);
+    expect(r.stderr).toContain('No artifact');
   });
 });
 
@@ -611,13 +759,13 @@ describe('loopany doctor', () => {
     const ws = await init();
     const r = await runCli(ws, 'doctor');
     expect(r.code).not.toBe(0);
-    expect(r.stdout.toLowerCase()).toMatch(/onboard|prs-self|goal/);
+    expect(r.stdout.toLowerCase()).toMatch(/onboard|prs-self|mission/);
   });
 
   test('all green after onboarding', async () => {
     const ws = await init();
     await runCli(ws, 'artifact', 'create', '--kind', 'person', '--slug', 'self', '--name', 'Test User');
-    await runCli(ws, 'artifact', 'create', '--kind', 'goal', '--slug', 'g1', '--title', 'Test goal', '--status', 'active');
+    await runCli(ws, 'artifact', 'create', '--kind', 'mission', '--slug', 'g1', '--title', 'Test mission', '--status', 'active');
 
     const r = await runCli(ws, 'doctor');
     expect(r.code).toBe(0);
@@ -629,7 +777,7 @@ describe('loopany doctor', () => {
   test('--json returns structured output', async () => {
     const ws = await init();
     await runCli(ws, 'artifact', 'create', '--kind', 'person', '--slug', 'self', '--name', 'X');
-    await runCli(ws, 'artifact', 'create', '--kind', 'goal', '--slug', 'g', '--title', 't', '--status', 'active');
+    await runCli(ws, 'artifact', 'create', '--kind', 'mission', '--slug', 'g', '--title', 't', '--status', 'active');
 
     const r = await runCli(ws, 'doctor', '--format', 'json');
     expect(r.code).toBe(0);
@@ -638,33 +786,33 @@ describe('loopany doctor', () => {
     expect(obj.checks.find((c: { name: string }) => c.name === 'onboarding')).toBeDefined();
   });
 
-  test('warns on goal coverage when artifacts have no goal mention', async () => {
+  test('warns on mission coverage when artifacts have no mission mention', async () => {
     const ws = await init();
     await runCli(ws, 'artifact', 'create', '--kind', 'person', '--slug', 'self', '--name', 'X');
-    await runCli(ws, 'artifact', 'create', '--kind', 'goal', '--slug', 'g', '--title', 't', '--status', 'active');
-    // task without --mentions to a goal
+    await runCli(ws, 'artifact', 'create', '--kind', 'mission', '--slug', 'g', '--title', 't', '--status', 'active');
+    // task without --mentions to a mission
     await runCli(ws, 'artifact', 'create', '--kind', 'task', '--title', 'orphan', '--status', 'todo');
 
     const r = await runCli(ws, 'doctor', '--format', 'json');
     expect(r.code).toBe(0); // warn, not fail
     const obj = JSON.parse(r.stdout);
-    const coverage = obj.checks.find((c: { name: string }) => c.name === 'goal coverage');
+    const coverage = obj.checks.find((c: { name: string }) => c.name === 'mission coverage');
     expect(coverage).toBeDefined();
     expect(coverage.status).toBe('warn');
-    expect(coverage.problems[0]).toMatch(/orphan|no goal/i);
+    expect(coverage.problems[0]).toMatch(/orphan|no mission/i);
   });
 
-  test('goal coverage passes when all artifacts mention a goal', async () => {
+  test('mission coverage passes when all artifacts mention a mission', async () => {
     const ws = await init();
     await runCli(ws, 'artifact', 'create', '--kind', 'person', '--slug', 'self', '--name', 'X');
     const g = JSON.parse(
-      (await runCli(ws, 'artifact', 'create', '--kind', 'goal', '--slug', 'g', '--title', 't', '--status', 'active')).stdout,
+      (await runCli(ws, 'artifact', 'create', '--kind', 'mission', '--slug', 'g', '--title', 't', '--status', 'active')).stdout,
     );
     await runCli(ws, 'artifact', 'create', '--kind', 'task', '--title', 'tagged', '--status', 'todo', '--mentions', g.id);
 
     const r = await runCli(ws, 'doctor', '--format', 'json');
     const obj = JSON.parse(r.stdout);
-    const coverage = obj.checks.find((c: { name: string }) => c.name === 'goal coverage');
+    const coverage = obj.checks.find((c: { name: string }) => c.name === 'mission coverage');
     expect(coverage.status).toBe('ok');
   });
 
@@ -672,7 +820,7 @@ describe('loopany doctor', () => {
     const ws = await init();
     await runCli(ws, 'artifact', 'create', '--kind', 'person', '--slug', 'self', '--name', 'X');
     const g = JSON.parse(
-      (await runCli(ws, 'artifact', 'create', '--kind', 'goal', '--slug', 'g', '--title', 't', '--status', 'active')).stdout,
+      (await runCli(ws, 'artifact', 'create', '--kind', 'mission', '--slug', 'g', '--title', 't', '--status', 'active')).stdout,
     );
     await runCli(ws, 'artifact', 'create', '--kind', 'task', '--title', 'orphan-d', '--status', 'todo', '--domain', 'unknown-d', '--mentions', g.id);
 
@@ -712,13 +860,42 @@ describe('loopany artifact set', () => {
 
   test('flips signal status to dismissed', async () => {
     const ws = await init();
-    const c = await runCli(ws, 'artifact', 'create', '--kind', 'signal', '--summary', 'noticed X');
+    const c = await runCli(ws, 'artifact', 'create', '--kind', 'signal', '--title', 'noticed X');
     const id = JSON.parse(c.stdout).id;
 
     const r = await runCli(ws, 'artifact', 'status', id, 'dismissed', '--reason', 'false positive');
     expect(r.code).toBe(0);
     const get = await runCli(ws, 'artifact', 'get', id, '--format', 'json');
     expect(JSON.parse(get.stdout).frontmatter.status).toBe('dismissed');
+  });
+
+  test('flips signal to addressed and emits an addresses edge', async () => {
+    const ws = await init();
+    const sig = await runCli(ws, 'artifact', 'create', '--kind', 'signal', '--title', 'noticed Y');
+    const sigId = JSON.parse(sig.stdout).id;
+    const tsk = await runCli(ws, 'artifact', 'create', '--kind', 'task', '--title', 'fix Y', '--status', 'todo');
+    const tskId = JSON.parse(tsk.stdout).id;
+
+    const r = await runCli(ws, 'artifact', 'status', sigId, 'addressed', '--addressed-by', tskId);
+    expect(r.code).toBe(0);
+    const get = await runCli(ws, 'artifact', 'get', sigId, '--format', 'json');
+    expect(JSON.parse(get.stdout).frontmatter.status).toBe('addressed');
+
+    const refs = await runCli(ws, 'refs', sigId, '--direction', 'in', '--relation', 'addresses');
+    const edges = JSON.parse(refs.stdout);
+    expect(edges).toHaveLength(1);
+    expect(edges[0].from).toBe(tskId);
+    expect(edges[0].to).toBe(sigId);
+  });
+
+  test('rejects addressed transition without --addressed-by', async () => {
+    const ws = await init();
+    const c = await runCli(ws, 'artifact', 'create', '--kind', 'signal', '--title', 'noticed Z');
+    const id = JSON.parse(c.stdout).id;
+
+    const r = await runCli(ws, 'artifact', 'status', id, 'addressed');
+    expect(r.code).not.toBe(0);
+    expect(r.stderr).toMatch(/addressed-by/);
   });
 
   test('rejects setting status field', async () => {
@@ -947,6 +1124,13 @@ describe('--reason audit trail', () => {
     const statusEntry = audit.find((e) => e.op === 'artifact.status' && e.new_status === 'done');
     expect(statusEntry).toBeDefined();
     expect(statusEntry.reason).toBe('customer signed');
+
+    const jsonGet = await runCli(ws, 'artifact', 'get', id, '--format', 'json');
+    const obj = JSON.parse(jsonGet.stdout);
+    const jsonStatusEntry = obj.audit.find((e: { op: string; new_status?: string }) => {
+      return e.op === 'artifact.status' && e.new_status === 'done';
+    });
+    expect(jsonStatusEntry.reason).toBe('customer signed');
   });
 });
 
@@ -1077,7 +1261,7 @@ describe('body [[link]] as implicit graph edges', () => {
     const ws = await init();
     await runCli(ws, 'artifact', 'create', '--kind', 'person', '--slug', 'self', '--name', 'X');
     const g = JSON.parse(
-      (await runCli(ws, 'artifact', 'create', '--kind', 'goal', '--slug', 'g', '--title', 't', '--status', 'active')).stdout,
+      (await runCli(ws, 'artifact', 'create', '--kind', 'mission', '--slug', 'g', '--title', 't', '--status', 'active')).stdout,
     );
     const task = JSON.parse(
       (await runCli(

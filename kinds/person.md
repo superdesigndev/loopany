@@ -11,8 +11,8 @@ indexedFields: [aliases]
 # person
 
 A human entity. Lives outside the time-bucketed artifact pool, in
-`loopany/artifacts/people/`. ID comes from a slug supplied at create time
-(e.g. `prs-alice-chen`), not a timestamp.
+`loopany/artifacts/people/`. ID is `prs-` + slug (`--slug alice-chen`
+→ `prs-alice-chen`, never `--slug prs-alice-chen`).
 
 Frontmatter is the "current understanding" — name and aliases can change
 over time. Body is append-only timeline of mentions and updates.

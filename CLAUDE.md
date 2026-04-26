@@ -12,7 +12,7 @@ work, what should I change next."** Unit of memory = artifact
 `led-to`, `follows-up`).
 
 Commercial target first (CRM, Ads, Content, SaaS metrics); substrate is
-goal-agnostic — personal-goals or research scopes work the same way.
+use-case-agnostic — personal-mission or research scopes work the same way.
 
 ## Core Concepts (three, final)
 
@@ -35,7 +35,7 @@ Action / Lesson concept — self-improvement emerges from `## Outcome` sections
 
 ```
 ~/loopany/                           # workspace root
-  config.yaml                    # enabled domains, goal
+  config.yaml                    # enabled domains, mission
   
   artifacts/
     {YYYY-MM}/                   # time-bound kinds (signal, briefing, task, outcome)
@@ -69,7 +69,7 @@ Action / Lesson concept — self-improvement emerges from `## Outcome` sections
 - `src/core/domain-loader.ts` — loads `loopany/config.yaml`, materializes enabled domains
 - `src/commands/*.ts` — one file per CLI subcommand
 - `domains/*/` — domains live under the **workspace** (`~/loopany/domains/{name}/`), not the source tree; each is extracted from real usage
-- `skills/*.md` — core skills (resolver, conventions, core actions, reflect loop)
+- `skills/<name>/SKILL.md` — core skills (resolver, conventions, core actions, reflect loop), one directory per skill per Anthropic Agent Skills format
 
 ## Commands
 
@@ -88,7 +88,8 @@ loopany artifact get <id>
 loopany artifact list [--kind] [--domain] [--status] [--date] [--where]
 
 # Graph queries
-loopany refs <id> [--direction in|out|both] [--relation X] [--depth 1|2]
+loopany refs <id> [--direction in|out|both] [--relation X] [--depth N]
+loopany trace <id> [--direction backward|forward|both] [--relations csv] [--max-depth N]
 loopany search <query> [--kind] [--domain] [--since]
 
 # Follow-up scheduling
@@ -157,7 +158,7 @@ cycle — not slots for specific use cases:
 
 | Slot | Kind | The question it answers |
 |---|---|---|
-| intent | `goal` | What is this all for? |
+| intent | `mission` | What is this all for, and what's the current best read of how to advance? |
 | input | `signal` | What came in? |
 | output | `brief` | What did I say back to the user? |
 | work | `task` | What am I doing, and did it work? |
@@ -209,7 +210,7 @@ artifact namespace and forces every other scope to reason about
 fields it doesn't care about. Domains keep that mess local.
 
 When the agent should *not* propose a domain: see
-[[./skills/conventions/new-concept.md]] — most "I want to track X"
+[[skills/new-concept/SKILL.md]] — most "I want to track X"
 should be a `note` first, not a new domain.
 
 ## Self-Evolution Loop
@@ -252,9 +253,12 @@ can drive zero or many behavior changes, and a belief can be revised
 6. **Agent proposes, human accepts.** For skills, kinds, and migrations.
 7. **Markdown + frontmatter is the format.** Structured pieces (metric,
    chart) go in fenced code blocks inside the body, not JSON envelopes.
-8. **Skill-to-skill links are `[[other-skill]]` in body**, not edges in
-   `references.jsonl`. The reference graph is artifact-only; readers (human
-   or agent) follow `[[…]]` manually.
+8. **Skill-to-skill links use `[[<path>/SKILL.md]]`** in body — path
+   relative to the linking file, always ending in `SKILL.md` (e.g.
+   `[[other-skill/SKILL.md]]` from another skill). Bare `[[name]]` is
+   reserved for artifact IDs (see `skills/relations/SKILL.md`). Skill
+   links are body-only — not edges in `references.jsonl`; readers follow
+   `[[…]]` manually.
 
 ## Build
 

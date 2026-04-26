@@ -37,7 +37,7 @@ export interface GraphPayload {
 
 // Default vertical stacking for kinds. Unknown kinds land in the last lane.
 const DEFAULT_LANE_ORDER = [
-  'goal',
+  'mission',
   'signal',
   'task',
   'brief',
@@ -102,12 +102,11 @@ export async function buildGraph(engine: Engine): Promise<GraphPayload> {
 }
 
 // Different kinds carry their display label under different keys:
-//   task / brief / goal / learning / note / skill-proposal → `title`
-//   signal → `summary`
+//   task / signal / brief / mission / learning / note / skill-proposal → `title`
 //   person → `name`
 // Fall through in that priority; only then back off to the id.
 function pickTitle(fm: Record<string, unknown>, fallback: string): string {
-  for (const key of ['title', 'summary', 'name']) {
+  for (const key of ['title', 'name']) {
     const v = fm[key];
     if (typeof v === 'string' && v.length > 0) return v;
   }

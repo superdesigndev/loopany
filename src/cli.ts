@@ -14,6 +14,7 @@ import { runArtifactAppend } from './commands/artifact-append.ts';
 import { runArtifactStatus } from './commands/artifact-status.ts';
 import { runArtifactSet } from './commands/artifact-set.ts';
 import { runRefsAdd, runRefsQuery } from './commands/refs.ts';
+import { runTrace } from './commands/trace.ts';
 import { runFollowups } from './commands/followups.ts';
 import { runDoctor, formatReport } from './commands/doctor.ts';
 import { runDomainList, runDomainEnable, runDomainDisable } from './commands/domain.ts';
@@ -118,7 +119,7 @@ async function dispatch(
       if (r.needsOnboarding) {
         console.log('');
         console.log('NEXT — read ONBOARDING.md and start the onboarding conversation.');
-        console.log('Without an active goal artifact, the brain has no reason to exist.');
+        console.log('Without an active mission artifact, the brain has no reason to exist.');
       }
       return;
     }
@@ -190,6 +191,14 @@ async function dispatch(
       const engine = await bootstrap();
       const result = await runRefsQuery(engine, _rest);
       meta.count = result.length;
+      process.stdout.write(JSON.stringify(result, null, 2) + '\n');
+      return;
+    }
+    case 'trace': {
+      const engine = await bootstrap();
+      const result = await runTrace(engine, _rest);
+      meta.nodes = result.nodes.length;
+      meta.edges = result.edges.length;
       process.stdout.write(JSON.stringify(result, null, 2) + '\n');
       return;
     }
@@ -281,8 +290,11 @@ ARTIFACTS
   artifact list [--kind] [--status]     List artifacts
 
 GRAPH
-  refs <id> [--direction in|out|both]   Query reference graph
+  refs <id> [--direction in|out|both] [--depth N]
+                                        Query reference graph (BFS, depth N)
   refs add --from <id> --to <id> ...    Add a reference edge
+  trace <id> [--direction backward|forward|both] [--relations csv]
+                                        Walk causal predicates to fixed point
 
 DOMAINS
   domain list                           List enabled + observed domains
@@ -306,17 +318,18 @@ SYSTEM
   --version                             Print version
 
 EXAMPLES
-  Field flags are per-kind. To see exact fields for a kind, pass any
-  unknown flag (e.g. \`--?\`) and the error lists valid flags. Common shapes:
+  Field flags are per-kind. Read \`~/loopany/kinds/<kind>.md\` for the
+  full schema — slug requirement, field types, status machine. Common examples:
 
-    artifact create --kind goal    --title "..." --status active --content-file -
-    artifact create --kind task    --title "[change] ..." --status todo --priority medium
-    artifact create --kind signal  --summary "..." --source observability --domain ads
+    artifact create --kind mission --title "..." --status active --content-file -
+    artifact create --kind task    --title "..." --status todo --priority medium
+    artifact create --kind signal  --title "..." --domain ads
     artifact create --kind person  --slug self --name "Ada Lovelace" --emails ada@acme.example
     artifact create --kind note    --title "..." --content "..."
 
     refs add --from <id> --to <id> --relation mentions
     artifact status tsk-... done --reason "shipped"
+    artifact status tsk-... failed --reason "blocked"
 `);
 }
 

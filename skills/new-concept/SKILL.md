@@ -57,7 +57,7 @@ the kind travels with it.
 - "Podcast episodes / blog posts / tweets" (the *published thing*, not
   the writing of it) — identity + queryable metrics + consistent body
   shape → **kind `post`** (inside `social` or `content` domain if scope
-  separates; standalone if the goal IS publishing). The writing is a
+  separates; standalone if the mission IS publishing). The writing is a
   `task`; the published artifact is the `post` — link via `produced`.
 - "Customers" — repeat reference + structured query (status, ARR,
   contract date) → **kind `customer` in `crm` domain**.

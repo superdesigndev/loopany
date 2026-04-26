@@ -207,6 +207,13 @@ export class ArtifactStore {
   private async allocateId(def: KindDefinition, opts: CreateOpts): Promise<string> {
     if (def.idStrategy === 'slug') {
       if (!opts.slug) throw new Error(`Kind ${def.kind}: slug required for create`);
+      if (opts.slug.startsWith(def.idPrefix)) {
+        const stripped = opts.slug.slice(def.idPrefix.length);
+        throw new Error(
+          `Slug must not include kind prefix '${def.idPrefix}'. ` +
+            `Use --slug ${stripped} (ID becomes ${def.idPrefix}${stripped}).`,
+        );
+      }
       const id = `${def.idPrefix}${opts.slug}`;
       const path = this.pathFor(def, id);
       if (existsSync(path)) {
@@ -238,8 +245,17 @@ function coerceField(raw: string, spec: FieldSpec): unknown {
       return Number(raw);
     case 'bool':
       return /^(true|yes|1)$/i.test(raw);
-    case 'string[]':
+    case 'string[]': {
+      const trimmed = raw.trim();
+      if (trimmed.startsWith('[')) {
+        const parsed = JSON.parse(trimmed);
+        if (!Array.isArray(parsed)) {
+          throw new Error(`Expected JSON array for string[] field, got ${typeof parsed}`);
+        }
+        return parsed.map(String);
+      }
       return raw.split(',').map((s) => s.trim()).filter(Boolean);
+    }
     default:
       throw new Error(`Unsupported field type: ${spec.type}`);
   }
