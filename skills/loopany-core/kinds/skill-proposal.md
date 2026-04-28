@@ -57,7 +57,7 @@ On `change_type: add` → body must contain both:
   Frontmatter must include `name` and a "pushy" `description` (states
   what the skill does AND when to trigger, biased against undertrigger).
   Trigger phrasing must mirror what the user would actually type.
-- `## Resolver entry` — the row to add to `skills/RESOLVER.md` so the
+- `## Resolver entry` — the row to add to `skills/loopany-resolver/SKILL.md` so the
   new skill is reachable. Without this row the skill is dead code.
 
 ## UI

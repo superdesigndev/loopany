@@ -76,7 +76,7 @@ confirm or correct. Empty is fine where nothing fits.
   in-flight commitments, decisions worth keeping. Don't enumerate
   every item; name the shape ("a handful of open threads from the
   journal worth tracking"). Routing per
-  [[skills/proactive-capture/SKILL.md]].
+  [[skills/loopany-capture/SKILL.md]].
 - End with one line: "or tell me if I've got the shape wrong." No
   A/B/C menu unless they disagree.
 
@@ -93,11 +93,11 @@ Once they've agreed:
    advance each one. Body + hypothesis in the conversation language,
    even if source material is in another.
 3. **Backfill silently from Phase 1.** Apply
-   [[skills/proactive-capture/SKILL.md]] routing per item, prefix artifacts
+   [[skills/loopany-capture/SKILL.md]] routing per item, prefix artifacts
    `[backfill]`, append a `## Backfill — YYYY-MM-DD` section to the
    mission summarizing what got pulled in.
 4. **If a recurring shape passes the test in
-   [[skills/new-concept/SKILL.md]]**, draft `kinds/<name>.md`
+   [[skills/loopany-core/conventions/taxonomy.md]]**, draft `kinds/<name>.md`
    (don't enable — drafting is silent, user accepts in the summary).
    Default is `note`; only draft a real kind when warranted.
 

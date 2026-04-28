@@ -41,7 +41,7 @@ the skill library. You don't run any shell commands yourself.
 - [`CLAUDE.md`](./CLAUDE.md) — design philosophy, core concepts, MVP scope
 - [`INSTALL_FOR_AGENTS.md`](./INSTALL_FOR_AGENTS.md) — agent-facing install + command reference
 - [`ONBOARDING.md`](./ONBOARDING.md) — the 5-phase first-run script
-- [`skills/RESOLVER.md`](./skills/RESOLVER.md) — skill dispatcher (read this if you're an agent)
+- [`skills/loopany-resolver/SKILL.md`](./skills/loopany-resolver/SKILL.md) — skill dispatcher (read this if you're an agent)
 - [`CHANGELOG.md`](./CHANGELOG.md) — release notes
 
 ## Status
