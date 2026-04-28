@@ -41,8 +41,27 @@ the skill library. You don't run any shell commands yourself.
 - [`CLAUDE.md`](./CLAUDE.md) — design philosophy, core concepts, MVP scope
 - [`INSTALL_FOR_AGENTS.md`](./INSTALL_FOR_AGENTS.md) — agent-facing install + command reference
 - [`ONBOARDING.md`](./ONBOARDING.md) — the 5-phase first-run script
-- [`skills/RESOLVER.md`](./skills/RESOLVER.md) — skill dispatcher (read this if you're an agent)
+- [`skills/loopany-resolver/SKILL.md`](./skills/loopany-resolver/SKILL.md) — skill dispatcher (read this if you're an agent)
 - [`CHANGELOG.md`](./CHANGELOG.md) — release notes
+
+## Testing
+
+```bash
+# Unit + e2e tests (loopany CLI logic)
+bun test
+
+# Skill regression — installs all 5 skills into Claude Code,
+# runs 10 scenarios via `claude -p`, and verifies workspace artifacts.
+# Requires: claude CLI in PATH + active API key.
+./test/skill-regression.sh            # run all 10 scenarios
+./test/skill-regression.sh 4          # run only scenario 4
+./test/skill-regression.sh --dry-run  # show commands without calling claude
+```
+
+The skill regression covers: artifact creation (signal/task/note), capture
+quality gate, daily/weekly review, reflect threshold, signal→task upgrade,
+and kind routing. Each scenario spawns a fresh workspace, so runs are
+isolated. Expect ~5 min for a full pass (10 `claude -p` calls).
 
 ## Status
 

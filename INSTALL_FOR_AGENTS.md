@@ -7,7 +7,7 @@ description: One-shot install + conduct reference. Read once at agent setup to i
 
 Read this file once. It covers what loopany is, the conversational principles
 that shape every loopany interaction, how to install it, and how to wire it
-into an agent's context. After that, `skills/RESOLVER.md` is the everyday
+into an agent's context. After that, `skills/loopany-resolver/SKILL.md` is the everyday
 entry point — this file is not a command manual.
 
 ## What it is
@@ -71,6 +71,9 @@ After init, `~/loopany/` looks like:
 │   ├── signal.md
 │   ├── person.md
 │   ├── mission.md
+│   ├── note.md
+│   ├── learning.md
+│   ├── skill-proposal.md
 │   └── brief.md
 ├── artifacts/
 │   ├── {YYYY-MM}/         # date-bucketed kinds (task, signal, brief)
@@ -101,12 +104,12 @@ of `ONBOARDING.md`.
 
 ### The four recurring skills
 
-| Cadence | Skill                       | What it does                                                        |
-|---------|-----------------------------|---------------------------------------------------------------------|
-| Daily   | `skills/daily-followups/SKILL.md` | Surface today's due items; close each with a state transition       |
-| Weekly  | `skills/weekly-sweep/SKILL.md`    | Doctor pass + overdue sweep + parking-lot sweep (stuck artifacts)   |
-| Weekly  | `skills/reflect/SKILL.md`         | Reflect on fresh outcomes; write learnings + skill-proposals        |
-| Monthly | `skills/monthly-review/SKILL.md`  | Mission-drift + structural-drift (new domain / new kind) detection  |
+| Cadence | Skill                              | What it does                                                        |
+|---------|------------------------------------|---------------------------------------------------------------------|
+| Daily   | `skills/loopany-review/SKILL.md`   | Surface today's due items; close each with a state transition       |
+| Weekly  | `skills/loopany-review/SKILL.md`   | Doctor pass + overdue sweep + parking-lot sweep (stuck artifacts)   |
+| Weekly  | `skills/loopany-reflect/SKILL.md`  | Reflect on fresh outcomes; write learnings + skill-proposals        |
+| Monthly | `skills/loopany-review/SKILL.md`   | Mission-drift + structural-drift (new domain / new kind) detection  |
 
 ### §A Agent platforms with durable cron (Hermes, OpenClaw, …)
 
@@ -150,11 +153,11 @@ loopany ships a **skill library** at `~/loopany-src/skills/`. Skills are
 markdown — judgment and process knowledge, not code. The runtime knows
 nothing about them; **you (the agent) read them on demand**.
 
-The entry point is `skills/RESOLVER.md`. It maps triggers (user phrases
+The entry point is `skills/loopany-resolver/SKILL.md`. It maps triggers (user phrases
 or agent decisions) to the skill file you must read before acting.
 
 This step implants one hard rule into the agent's persistent context:
-**at the end of every user-requested task, Read RESOLVER.md before the
+**at the end of every user-requested task, Read the resolver SKILL.md before the
 final reply**. The canonical injection text lives at
 `~/loopany-src/injections/resolver-memory.md`. Each platform below
 just appends that same file into its own memory primitive.
@@ -202,11 +205,11 @@ Concrete file checks, not self-query:
 grep -l "loopany skill resolver" ~/.claude/CLAUDE.md ~/AGENTS.md 2>/dev/null
 
 # Is loopany itself still at the expected path?
-test -f ~/loopany-src/skills/RESOLVER.md && echo "RESOLVER present"
+test -f ~/loopany-src/skills/loopany-resolver/SKILL.md && echo "RESOLVER present"
 ```
 
 Then start a fresh session and ask the agent: **"where is the loopany
-resolver?"** If it answers `~/loopany-src/skills/RESOLVER.md` without
+resolver?"** If it answers `~/loopany-src/skills/loopany-resolver/SKILL.md` without
 opening any file, context was loaded. If it has to search, the memory
 file exists but didn't inject — check the host's memory-scope rules.
 
@@ -225,19 +228,15 @@ file exists but didn't inject — check the host's memory-scope rules.
 
 | Path | Purpose |
 |---|---|
-| `skills/RESOLVER.md` | Dispatcher — read this first |
-| `skills/relations/SKILL.md` | Relation verbs for `refs add` |
-| `skills/new-concept/SKILL.md` | Note vs new kind vs new domain decision |
-| `skills/core-artifacts/SKILL.md` | Signal + task lifecycle: when to write, body shape, status transitions, signal→task promotion |
-| `skills/reflect/SKILL.md` | Reflection loop — write learnings and skill-proposals |
-| `skills/proactive-capture/SKILL.md` | When + how to record work after it concludes (triggers, quality bar, subagent pattern) |
-| `skills/daily-followups/SKILL.md` | Daily check-in on today's due `check_at` items |
-| `skills/weekly-sweep/SKILL.md` | Weekly integrity sweep: doctor + overdue + parking lots |
-| `skills/monthly-review/SKILL.md` | Monthly mission-drift + structural-drift review |
+| `skills/loopany-resolver/SKILL.md` | Dispatcher — read this first; routes to the right skill |
+| `skills/loopany-core/SKILL.md` | Artifact CRUD routing; kind playbooks in `kinds/`; conventions in `conventions/` |
+| `skills/loopany-capture/SKILL.md` | When + how to record work after it concludes (triggers, quality gate, subagent pattern) |
+| `skills/loopany-reflect/SKILL.md` | Reflection loop — write learnings and skill-proposals |
+| `skills/loopany-review/SKILL.md` | Periodic review (daily/weekly/monthly); frequency details in `references/` |
 
 You do **not** need to memorize these. You need to remember to read
-RESOLVER first. Trigger discipline, quality bar, and subagent dispatch
-pattern all live in `skills/proactive-capture/SKILL.md` — the resolver
+the resolver first. Trigger discipline, quality bar, and subagent dispatch
+pattern all live in `skills/loopany-capture/SKILL.md` — the resolver
 routes to it.
 
 ## Step 6 — Verify

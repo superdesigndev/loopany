@@ -7,7 +7,7 @@ import { mkdir, readdir, copyFile, writeFile } from 'fs/promises';
 import { join, resolve } from 'path';
 import { getWorkspaceRoot } from '../core/engine.ts';
 
-const BUNDLED_KINDS = resolve(import.meta.dir, '..', '..', 'kinds');
+const BUNDLED_KINDS = resolve(import.meta.dir, '..', '..', 'skills', 'loopany-core', 'kinds');
 
 export async function runInit(): Promise<{ root: string; created: string[]; needsOnboarding: boolean }> {
   const root = getWorkspaceRoot();

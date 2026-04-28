@@ -53,3 +53,29 @@ On `status: archived` → body must contain `## Outcome`
 ## UI
 
 cardFields: [title, domain, status]
+
+---
+
+## Playbook
+
+### When to create
+
+Only from a **pattern** across multiple artifacts. The `loopany-reflect`
+skill drives this. Minimum discipline:
+
+- **Title** = the belief itself, as a declarative sentence.
+- **`evidence`** cites ≥ 2 artifact IDs.
+- **Body** covers `## Observation`, `## Evidence`, `## Scope`, `## Check-at`.
+- **`check_at`** 1-3 months out with a concrete revalidation question.
+
+When understanding changes, create new learning with `supersedes`;
+don't rewrite the old one.
+
+A learning may stop at "now we know." Create a `skill-proposal` only
+when it implies a concrete skill edit.
+
+### Anti-patterns
+
+- ❌ One task → one learning — wait for ≥ 2 data points.
+- ❌ Learning as diary entry — "shipped #450" is an outcome, not a belief.
+- ❌ No `check_at` — beliefs rot silently.

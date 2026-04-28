@@ -42,3 +42,10 @@ mentions: { type: 'string[]', required: false }  # artifacts cited in the body
 ## UI
 
 cardFields: [title, for_date]
+
+---
+
+## Playbook
+
+- Point-in-time summary. Never rewritten; create new + `supersedes`.
+- Always `mentions` the artifacts you cite — a briefing without citations is unverifiable.

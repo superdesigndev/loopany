@@ -35,3 +35,11 @@ mentions: { type: 'string[]', required: false }
 ## UI
 
 cardFields: [name, aliases]
+
+---
+
+## Playbook
+
+- Create when a human appears in ≥ 2 artifacts and needs a canonical reference.
+- Before creating, check aliases: `loopany artifact list --kind person --contains "<name>"`.
+- Body is append-only timeline with dated entries.

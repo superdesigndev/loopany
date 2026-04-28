@@ -210,7 +210,7 @@ artifact namespace and forces every other scope to reason about
 fields it doesn't care about. Domains keep that mess local.
 
 When the agent should *not* propose a domain: see
-[[skills/new-concept/SKILL.md]] — most "I want to track X"
+[[skills/loopany-core/conventions/taxonomy.md]] — most "I want to track X"
 should be a `note` first, not a new domain.
 
 ## Self-Evolution Loop
@@ -256,7 +256,7 @@ can drive zero or many behavior changes, and a belief can be revised
 8. **Skill-to-skill links use `[[<path>/SKILL.md]]`** in body — path
    relative to the linking file, always ending in `SKILL.md` (e.g.
    `[[other-skill/SKILL.md]]` from another skill). Bare `[[name]]` is
-   reserved for artifact IDs (see `skills/relations/SKILL.md`). Skill
+   reserved for artifact IDs (see `skills/loopany-core/conventions/relations.md`). Skill
    links are body-only — not edges in `references.jsonl`; readers follow
    `[[…]]` manually.
 
