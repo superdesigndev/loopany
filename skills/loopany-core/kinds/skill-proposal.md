@@ -63,3 +63,25 @@ On `change_type: add` → body must contain both:
 ## UI
 
 cardFields: [title, status, target_skill]
+
+---
+
+## Playbook
+
+### When to create
+
+Only when a learning implies a **concrete skill edit**. The
+`loopany-reflect` skill drives creation. Check rejected proposals first.
+
+### Required body sections
+
+See `loopany-reflect` skill for full writing rules, required sections
+(`## Motivation`, `## Proposed change`, `## Expected effect`, `## Check-at`),
+and the special `change_type: add` format (`## Skill draft` + `## Resolver entry`).
+
+### Anti-patterns
+
+- ❌ Proposing without a backing learning.
+- ❌ Re-proposing a rejected change — check rejected list first.
+- ❌ Editing skill files directly — always go through proposals.
+- ❌ `add` without a `## Resolver entry` — skill becomes dead code.

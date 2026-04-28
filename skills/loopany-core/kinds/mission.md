@@ -91,3 +91,30 @@ lost signal. Default is not to mention.
 ## UI
 
 cardFields: [title, status, hypothesis]
+
+---
+
+## Playbook
+
+### When to create
+
+- **Onboarding** — first-run setup locks in one active mission.
+- **Mission shift** — old → `abandoned` with reason + new mission with `supersedes` edge.
+
+### Alignment monitoring
+
+The `loopany-review` skill checks monthly:
+```
+alignment = tasks mentioning this mission / total recent tasks
+```
+
+| Alignment | Action |
+|-----------|--------|
+| ≥ 60% | Healthy |
+| 30-60% | Partial drift — backfill mentions or lock in second mission? |
+| < 30% | Clear drift — propose re-onboarding |
+
+### Anti-patterns
+
+- ❌ Auto-abandoning — drift is hypothesis, surface and wait for user.
+- ❌ Ignoring domain scope — compute alignment within mission's domain.

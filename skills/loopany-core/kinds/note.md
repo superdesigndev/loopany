@@ -46,3 +46,11 @@ mentions: { type: 'string[]', required: false }
 ## UI
 
 cardFields: [title, tags]
+
+---
+
+## Playbook
+
+- **Default kind.** When nothing else fits, use `note`.
+- Committing to work → `task`. Noticed something unresolved → `signal`. Belief from evidence → `learning`.
+- Before inventing a new kind, run the 4-question test (`conventions/taxonomy.md`).
