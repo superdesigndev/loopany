@@ -57,6 +57,7 @@ guide (§ Playbook). Read the kind file before creating or modifying.
 
 | Need | Skill |
 |------|-------|
+| First-read routing for any loopany interaction | `loopany-resolver` |
 | Self-improvement (reflect → learning → proposal) | `loopany-reflect` |
 | Periodic reviews (daily / weekly / monthly) | `loopany-review` |
 | Auto-capture after work concludes | `loopany-capture` |

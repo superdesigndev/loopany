@@ -1,31 +1,27 @@
 ---
 name: loopany-review
-description: "Periodic review for loopany — daily, weekly, or monthly. Daily: surface today's due check_at items. Weekly: overdue + parking lots + workspace doctor. Monthly: mission alignment + structural drift. Triggers: 'what's due today', 'what am I forgetting', 'what's slipping', 'weekly check', 'is the workspace healthy', 'is this still the right mission?', 'anything structural?', session start, daily/weekly/monthly cadence."
+description: "Periodic review for loopany — daily, weekly, or monthly. Triggers: 'what's due today', 'what am I forgetting', 'what's slipping', 'weekly check', 'is the workspace healthy', 'is this still the right mission?', 'anything structural?', session start, daily/weekly/monthly cadence."
 ---
 
 # loopany-review — parameterized periodic check
 
 One skill, three frequencies. Each adds scope; all share the same closure gate.
 
-## Frequency
+## Frequency routing
 
-| Freq | Scope | Trigger |
-|------|-------|---------|
-| **daily** | `check_at = today` | "what's due today", session start |
-| **weekly** | overdue + parking lots + doctor | "what's slipping", "weekly check" |
-| **monthly** | mission alignment + structural drift | "right mission?", "anything structural?" |
+| Freq | Scope | Trigger | Read |
+|------|-------|---------|------|
+| **daily** | `check_at = today` | "what's due today", session start | `references/daily.md` |
+| **weekly** | overdue + parking lots + doctor | "what's slipping", "weekly check" | `references/weekly.md` |
+| **monthly** | mission alignment + structural drift | "right mission?", "anything structural?" | `references/monthly.md` |
 
 **Don't mix scopes.** One week of overdue is a pattern; one day isn't.
 
-## Unified flow
+## Unified flow (all frequencies)
 
 ### 1. Query
 
-| Freq | Command |
-|------|---------|
-| daily | `loopany followups --due today` |
-| weekly | `loopany followups --due overdue` + parking-lot queries + `loopany doctor --format json` |
-| monthly | `loopany artifact list --kind mission --status active` + recent tasks (30d) |
+Frequency-specific — see the reference file.
 
 ### 2. Classify
 
@@ -67,54 +63,6 @@ Every surfaced item must end the session in one of:
 
 **No zombie items.** A digest without state changes is noise.
 
----
-
-## Daily
-
-- Only today, not overdue (weekly's job).
-- Max once per day. Empty → report and stop.
-
-## Weekly
-
-### Doctor
-
-```bash
-loopany doctor --format json
-```
-
-Summarize by category, propose fixes. **Don't auto-fix** — may be decision in progress.
-
-### Parking lots
-
-| Query | Threshold |
-|-------|-----------|
-| `artifact list --kind task --status running` | ≥ 14d, no recent append |
-| `artifact list --kind signal --status open` | ≥ 7d, no action |
-| `artifact list --kind skill-proposal --status pending` | any → mention; > 5 → nudge |
-
-Stalled running → `in_review` or `failed`/`cancelled` with Outcome.
-"Still working on it" is not closure.
-
-### Feed reflect
-
-≥ 3 resolutions this pass → suggest `loopany-reflect`.
-
-## Monthly
-
-### Mission alignment
-
-→ `../loopany-core/kinds/mission.md § Playbook § Alignment monitoring`
-
-### Structural drift — domains
-
-All three must hold: ≥ 5 artifacts with unenabled domain, ≥ 2 weeks, distinguishable. → propose `[change]` task.
-
-### Structural drift — kinds
-
-Both must hold: ≥ 3 notes with shared body skeleton ≥ 2 weeks, passes 4-question test (`../loopany-core/conventions/taxonomy.md`). → propose `[change]` task (forward-only, no migration).
-
----
-
 ## Anti-patterns
 
 - ❌ Daily runs overdue → weekly's job.
@@ -124,8 +72,6 @@ Both must hold: ≥ 3 notes with shared body skeleton ≥ 2 weeks, passes 4-ques
 - ❌ Surface without closing → worse than no digest.
 - ❌ Manufacture content when empty → quiet is fine.
 - ❌ Dump raw JSON → your job is judgment.
-- ❌ Auto-fix doctor findings → may be in-progress decision.
-- ❌ Auto-abandon mission → drift is hypothesis.
 
 ## Quick reference
 
