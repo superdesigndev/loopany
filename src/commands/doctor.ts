@@ -36,18 +36,26 @@ export async function runDoctor(engine: Engine, args: string[]): Promise<DoctorR
   const idx = await engine.index();
   const checks: CheckResult[] = [];
 
-  // 1. Workspace + 2. Kinds (we got here, so both passed)
+  // 1. Workspace (we got here, so it passed)
   checks.push({
     name: 'workspace',
     status: 'ok',
     detail: engine.root,
   });
 
+  // 2. Kinds — load issues are tolerated at boot; surface them here so a
+  // single broken kind file doesn't brick the whole CLI.
   const kindNames = engine.registry.list().map((k) => k.kind).sort();
+  const kindIssues = engine.registry.issues;
+  const kindProblems = kindIssues.map((i) => `${i.file}: ${i.error}`);
   checks.push({
     name: 'kinds',
-    status: 'ok',
-    detail: `${kindNames.length} loaded (${kindNames.join(', ')})`,
+    status: kindProblems.length === 0 ? 'ok' : 'fail',
+    detail:
+      kindProblems.length === 0
+        ? `${kindNames.length} loaded (${kindNames.join(', ')})`
+        : `${kindNames.length} loaded, ${kindProblems.length} FAILED to parse`,
+    problems: kindProblems.length ? kindProblems : undefined,
   });
 
   // 3. Artifact validation

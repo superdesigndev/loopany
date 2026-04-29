@@ -105,6 +105,55 @@ describe('ArtifactStore.create', () => {
     await expect(store.create('person', { name: 'X' })).rejects.toThrow(/slug required/i);
   });
 
+  test('rejects slugs with invalid characters', async () => {
+    const root = newWorkspace();
+    const reg = await setupRegistry();
+    const store = new ArtifactStore(root, reg);
+
+    const bad = [
+      '../etc/passwd',     // path traversal
+      'alice/bob',         // path separator
+      'alice\\bob',        // backslash
+      '.hidden',           // leading dot
+      'Alice',             // uppercase
+      'alice chen',        // space
+      'alice_chen',        // underscore (kebab only)
+      '-alice',            // leading hyphen
+      'alice-',            // trailing hyphen
+      'alice--chen',       // double hyphen
+      '',                  // empty
+      'café',              // non-ASCII
+    ];
+    for (const slug of bad) {
+      await expect(
+        store.create('person', { name: 'X' }, '', { slug }),
+        `slug "${slug}" should be rejected`,
+      ).rejects.toThrow(/invalid slug|slug required/i);
+    }
+  });
+
+  test('rejects slugs over the length cap', async () => {
+    const root = newWorkspace();
+    const reg = await setupRegistry();
+    const store = new ArtifactStore(root, reg);
+
+    const tooLong = 'a'.repeat(81);
+    await expect(
+      store.create('person', { name: 'X' }, '', { slug: tooLong }),
+    ).rejects.toThrow(/too long/i);
+  });
+
+  test('accepts canonical kebab-case slugs', async () => {
+    const root = newWorkspace();
+    const reg = await setupRegistry();
+    const store = new ArtifactStore(root, reg);
+
+    for (const slug of ['self', 'alice', 'alice-chen', 'fundraising-2027', 'a1', '2026-q2']) {
+      const a = await store.create('person', { name: slug }, '', { slug });
+      expect(a.id).toBe(`prs-${slug}`);
+    }
+  });
+
   test('handles same-second collision by appending -2', async () => {
     const root = newWorkspace();
     const reg = await setupRegistry();

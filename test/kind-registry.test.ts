@@ -178,7 +178,7 @@ name: { type: string, required: true }
     expect(reg.getByPrefix('xxx-')).toBeUndefined();
   });
 
-  test('throws on duplicate kind', async () => {
+  test('records duplicate kind as issue, keeps first one', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'loopany-kinds-dup-'));
     const def = `---
 kind: task
@@ -195,6 +195,90 @@ title: { type: string, required: true }
 `;
     writeFileSync(join(dir, 'task.md'), def);
     writeFileSync(join(dir, 'task-dup.md'), def);
-    await expect(KindRegistry.load(dir)).rejects.toThrow(/duplicate kind/i);
+    const reg = await KindRegistry.load(dir);
+    expect(reg.list().map((k) => k.kind)).toEqual(['task']);
+    expect(reg.issues).toHaveLength(1);
+    expect(reg.issues[0].error).toMatch(/duplicate kind/i);
+    expect(reg.issues[0].file).toMatch(/(task|task-dup)\.md$/);
+  });
+
+  test('records broken kind file as issue, keeps good ones loadable', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'loopany-kinds-bad-'));
+    writeFileSync(
+      join(dir, 'good.md'),
+      `---
+kind: task
+idPrefix: tsk-
+bodyMode: append
+storage: date-bucketed
+idStrategy: timestamp
+indexedFields: []
+---
+## Frontmatter
+\`\`\`yaml
+title: { type: string, required: true }
+\`\`\`
+`,
+    );
+    // Missing top-level `kind` field — parseKindDefinition should reject.
+    writeFileSync(
+      join(dir, 'broken.md'),
+      `---
+idPrefix: bad-
+bodyMode: append
+storage: flat
+idStrategy: slug
+---
+## Frontmatter
+\`\`\`yaml
+name: { type: string, required: true }
+\`\`\`
+`,
+    );
+
+    const reg = await KindRegistry.load(dir);
+    expect(reg.list().map((k) => k.kind)).toEqual(['task']);
+    expect(reg.issues).toHaveLength(1);
+    expect(reg.issues[0].file).toMatch(/broken\.md$/);
+    expect(reg.issues[0].error).toMatch(/kind/);
+  });
+
+  test('records YAML syntax errors as issues, not throws', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'loopany-kinds-yaml-'));
+    writeFileSync(
+      join(dir, 'good.md'),
+      `---
+kind: task
+idPrefix: tsk-
+bodyMode: append
+storage: date-bucketed
+idStrategy: timestamp
+indexedFields: []
+---
+## Frontmatter
+\`\`\`yaml
+title: { type: string, required: true }
+\`\`\`
+`,
+    );
+    // Unterminated flow mapping in top-level frontmatter — YAML parser will throw.
+    writeFileSync(
+      join(dir, 'syntax.md'),
+      `---
+kind: broken
+idPrefix: brk-
+indexedFields: [unterminated
+---
+## Frontmatter
+\`\`\`yaml
+title: { type: string, required: true }
+\`\`\`
+`,
+    );
+
+    const reg = await KindRegistry.load(dir);
+    expect(reg.list().map((k) => k.kind)).toEqual(['task']);
+    expect(reg.issues).toHaveLength(1);
+    expect(reg.issues[0].file).toMatch(/syntax\.md$/);
   });
 });

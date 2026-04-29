@@ -41,6 +41,11 @@ export interface FieldSpec {
   default?: unknown;
 }
 
+export interface LoadIssue {
+  file: string;
+  error: string;
+}
+
 const SECTION_RE = /^##\s+(.+?)\s*$/gm;
 const FENCED_YAML_RE = /```yaml\n([\s\S]*?)\n```/;
 
@@ -124,6 +129,7 @@ function extractYamlBlock(section: string | undefined): unknown {
 export class KindRegistry {
   private byKind = new Map<string, KindDefinition>();
   private byPrefix = new Map<string, KindDefinition>();
+  private _issues: LoadIssue[] = [];
 
   static async load(
     dir: string,
@@ -143,13 +149,32 @@ export class KindRegistry {
     const files = await readdir(dir);
     for (const file of files) {
       if (!file.endsWith('.md')) continue;
-      const raw = await readFile(join(dir, file), 'utf-8');
-      const def = parseKindDefinition(raw);
-      if (this.byKind.has(def.kind)) {
-        throw new Error(`Duplicate kind: ${def.kind} (file: ${file})`);
+      const path = join(dir, file);
+      try {
+        const raw = await readFile(path, 'utf-8');
+        const def = parseKindDefinition(raw);
+        if (this.byKind.has(def.kind)) {
+          this._issues.push({
+            file: path,
+            error: `Duplicate kind: ${def.kind} (already registered from another file)`,
+          });
+          continue;
+        }
+        if (this.byPrefix.has(def.idPrefix)) {
+          this._issues.push({
+            file: path,
+            error: `Duplicate idPrefix: ${def.idPrefix} (already registered from another file)`,
+          });
+          continue;
+        }
+        this.byKind.set(def.kind, def);
+        this.byPrefix.set(def.idPrefix, def);
+      } catch (err) {
+        this._issues.push({
+          file: path,
+          error: err instanceof Error ? err.message : String(err),
+        });
       }
-      this.byKind.set(def.kind, def);
-      this.byPrefix.set(def.idPrefix, def);
     }
   }
 
@@ -163,6 +188,10 @@ export class KindRegistry {
 
   list(): KindDefinition[] {
     return [...this.byKind.values()];
+  }
+
+  get issues(): LoadIssue[] {
+    return this._issues;
   }
 }
 

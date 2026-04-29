@@ -16,6 +16,13 @@ import type { FieldSpec, KindDefinition, KindRegistry } from './kind-registry.ts
 
 const BUILTIN_FIELDS = new Set(['domain']);
 
+// Slug = kebab-case identifier. Lowercase a–z, digits, single hyphens between
+// segments. No leading/trailing hyphen, no double hyphens. This is what every
+// existing kind uses (alice-chen, fundraising-2027, self) and it locks out
+// path-separator chars, leading dots, spaces, and other filename hazards.
+const SLUG_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+const MAX_SLUG_LEN = 80;
+
 export interface Artifact {
   id: string;
   kind: string;
@@ -212,6 +219,18 @@ export class ArtifactStore {
         throw new Error(
           `Slug must not include kind prefix '${def.idPrefix}'. ` +
             `Use --slug ${stripped} (ID becomes ${def.idPrefix}${stripped}).`,
+        );
+      }
+      if (opts.slug.length > MAX_SLUG_LEN) {
+        throw new Error(
+          `Slug too long: ${opts.slug.length} chars (max ${MAX_SLUG_LEN}).`,
+        );
+      }
+      if (!SLUG_RE.test(opts.slug)) {
+        throw new Error(
+          `Invalid slug: ${JSON.stringify(opts.slug)}. ` +
+            `Must be kebab-case: lowercase letters, digits, single hyphens between segments ` +
+            `(e.g. 'alice-chen', 'fundraising-2027', 'self').`,
         );
       }
       const id = `${def.idPrefix}${opts.slug}`;
