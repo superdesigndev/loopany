@@ -672,19 +672,71 @@
     function layout(graph) {
       const domainColorOf = assignDomainColors(graph.domains);
       const positions = new Map();
+      const dateHeaders = [];
 
       if (graph.nodes.length === 0) {
         return {
-          positions, domainColorOf, regions: [], dateHeaders: [],
+          positions, domainColorOf, regions: [], dateHeaders,
           worldW: 1200, worldH: 800,
         };
       }
 
-      // Partition
+      // Per-domain vertical bands so domain regions never overlap.
+      // Cards without a `domain` field land in a final unzoned band.
+      const byDomain = new Map();
+      for (const n of graph.nodes) {
+        const d = n.domain || null;
+        let group = byDomain.get(d);
+        if (!group) { group = []; byDomain.set(d, group); }
+        group.push(n);
+      }
+
+      // Order: enabled domains in declared order, then any other named
+      // domains alphabetical, then unzoned last.
+      const seen = new Set();
+      const domainOrder = [];
+      for (const d of graph.enabledDomains) {
+        if (byDomain.has(d) && !seen.has(d)) { domainOrder.push(d); seen.add(d); }
+      }
+      for (const d of [...byDomain.keys()].filter((x) => x !== null).sort()) {
+        if (!seen.has(d)) { domainOrder.push(d); seen.add(d); }
+      }
+      if (byDomain.has(null)) domainOrder.push(null);
+
+      // Gap between bands — wider than STRIP_EXTRA_GAP so the domain
+      // outlines read as clearly separate territories rather than
+      // adjacent strips.
+      const BAND_GAP = STRIP_EXTRA_GAP * 1.5;
+      let cursorY = GRID_MARGIN;
+      let maxRight = GRID_MARGIN;
+
+      domainOrder.forEach((domain, bandIdx) => {
+        const result = layoutBand(byDomain.get(domain), GRID_MARGIN, cursorY, bandIdx);
+        for (const [id, p] of result.positions) positions.set(id, p);
+        dateHeaders.push(...result.dateHeaders);
+        if (result.right > maxRight) maxRight = result.right;
+        cursorY = result.bottom + BAND_GAP;
+      });
+
+      const worldW = maxRight + GRID_MARGIN;
+      const worldH = (cursorY - BAND_GAP) + GRID_MARGIN;
+
+      const regions = computeDomainRegions(graph, positions, domainColorOf);
+
+      return { positions, domainColorOf, regions, dateHeaders, worldW, worldH };
+    }
+
+    // Lays out one domain band (missions on top, entities on left,
+    // date grid below) anchored at (originX, originY). Returns the
+    // band's right/bottom extent so the caller can stack bands.
+    function layoutBand(nodes, originX, originY, bandIdx) {
+      const positions = new Map();
+      const dateHeaders = [];
+
       const missions = [];
       const entities = [];
-      const byDate = new Map();  // 'YYYY-MM-DD' → [...nodes]
-      for (const n of graph.nodes) {
+      const byDate = new Map();
+      for (const n of nodes) {
         if (TOP_ROW_KINDS.has(n.kind)) missions.push(n);
         else if (LEFT_COL_KINDS.has(n.kind)) entities.push(n);
         else {
@@ -707,56 +759,44 @@
         });
       }
 
-      const leftX = GRID_MARGIN;
       const leftStripW = entities.length > 0
         ? CARD_W + GRID_COL_GAP + STRIP_EXTRA_GAP
         : 0;
-      const gridX = GRID_MARGIN + leftStripW;
+      const gridX = originX + leftStripW;
 
-      const topY = GRID_MARGIN;
       const topStripH = missions.length > 0
         ? CARD_H + GRID_ROW_GAP + STRIP_EXTRA_GAP
         : 0;
-      const gridY = GRID_MARGIN + topStripH;
+      const gridY = originY + topStripH;
 
-      // One date block = two card columns with INTRA_COL_GAP between them,
-      // plus GRID_COL_GAP to the next block.
       const missionPitch = CARD_W + GRID_COL_GAP;
       const blockWidth = 2 * CARD_W + INTRA_COL_GAP;
       const blockPitch = blockWidth + GRID_COL_GAP;
       const rowPitch = CARD_H + GRID_ROW_GAP;
-
       const border = (k) => KIND_COLOR[k] ?? KIND_COLOR_FALLBACK;
 
-      // Missions across the top — one card wide each, aligned over the first
-      // date block so the topmost row reads as "what we're aiming at"
-      // above "what we did on each day".
+      // Missions: top row of this band.
       missions.forEach((n, i) => {
         positions.set(n.id, {
           x: gridX + i * missionPitch,
-          y: topY,
+          y: originY,
           borderColor: border(n.kind),
           blockKey: null,
         });
       });
 
-      // Entities down the left.
+      // Entities: left column of this band.
       entities.forEach((n, i) => {
         positions.set(n.id, {
-          x: leftX,
+          x: originX,
           y: gridY + i * rowPitch,
           borderColor: border(n.kind),
           blockKey: null,
         });
       });
 
-      // Date blocks (2 columns each). Items in a day are already sorted
-      // by (kind rank, createdAt) — the first half fills the left column
-      // top-down, the second half fills the right column. That keeps
-      // same-kind artifacts grouped together and lets inter-column
-      // edges (e.g. task → brief) route cleanly through the inter-col
-      // gap without punching through neighboring cards.
-      const dateHeaders = [];
+      // Date blocks (2 card columns each). blockKey carries the band
+      // index so edges across bands aren't mistaken for same-block.
       let maxBottom = gridY;
       dates.forEach((d, colIdx) => {
         const xBlock = gridX + colIdx * blockPitch;
@@ -769,7 +809,7 @@
         });
         const items = byDate.get(d);
         const half = Math.ceil(items.length / 2);
-        const blockKey = 'd:' + d;
+        const blockKey = `d:${bandIdx}:${d}`;
         items.forEach((n, i) => {
           const inLeftCol = i < half;
           const rowIdx = inLeftCol ? i : i - half;
@@ -784,22 +824,20 @@
         });
       });
 
-      const missionsRight = missions.length > 0 ? gridX + missions.length * missionPitch : gridX;
+      const missionsRight = missions.length > 0
+        ? gridX + missions.length * missionPitch
+        : gridX;
       const datesRight = dates.length > 0
         ? gridX + (dates.length - 1) * blockPitch + blockWidth
         : gridX;
-      const contentRight = Math.max(missionsRight, datesRight);
+      const right = Math.max(missionsRight, datesRight);
+
       const entitiesBottom = entities.length > 0
         ? gridY + entities.length * rowPitch
         : gridY;
-      const contentBottom = Math.max(entitiesBottom, maxBottom);
+      const bottom = Math.max(entitiesBottom, maxBottom);
 
-      const worldW = contentRight + GRID_MARGIN;
-      const worldH = contentBottom + GRID_MARGIN;
-
-      const regions = computeDomainRegions(graph, positions, domainColorOf);
-
-      return { positions, domainColorOf, regions, dateHeaders, worldW, worldH };
+      return { positions, dateHeaders, right, bottom };
     }
 
     // Axis-aligned bounding box of every domain's cards, padded for a
