@@ -1,16 +1,12 @@
 import { describe, expect, test } from 'bun:test';
-import { mkdtempSync, writeFileSync, mkdirSync } from 'fs';
+import { mkdtempSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { parseKindDefinition, KindRegistry } from '../src/core/kind-registry.ts';
 
 const TASK_KIND = `---
 kind: task
-idPrefix: tsk-
-bodyMode: append
-storage: date-bucketed
-idStrategy: timestamp
-indexedFields: [status, priority, check_at]
+indexedFields: [status, priority, checkAt]
 ---
 
 # task
@@ -20,11 +16,11 @@ A unit of work.
 ## Frontmatter
 
 \`\`\`yaml
-title:         { type: string, required: true }
-status:        { type: enum, values: [todo, running, done, cancelled] }
-priority:      { type: enum, values: [low, medium, high, critical], default: medium }
-check_at:      { type: date, required: false }
-mentions:      { type: 'string[]', required: false }
+title:    { type: string, required: true }
+status:   { type: enum, values: [todo, running, done, cancelled] }
+priority: { type: enum, values: [low, medium, high, critical], default: medium }
+checkAt:  { type: date, required: false }
+mentions: { type: 'string[]', required: false }
 \`\`\`
 
 ## Status machine
@@ -41,10 +37,9 @@ describe('parseKindDefinition', () => {
   test('parses top-level frontmatter', () => {
     const def = parseKindDefinition(TASK_KIND);
     expect(def.kind).toBe('task');
-    expect(def.idPrefix).toBe('tsk-');
-    expect(def.storage).toBe('date-bucketed');
-    expect(def.idStrategy).toBe('timestamp');
-    expect(def.indexedFields).toEqual(['status', 'priority', 'check_at']);
+    expect(def.dirName).toBe('tasks');
+    expect(def.slugLayout).toBe('flat');
+    expect(def.indexedFields).toEqual(['status', 'priority', 'checkAt']);
   });
 
   test('defaults dirName to {kind}s', () => {
@@ -79,19 +74,15 @@ describe('parseKindDefinition', () => {
     const ok = def.frontmatterSchema.parse({
       title: 'x',
       status: 'todo',
-      mentions: ['prs-alice', 'prs-bob'],
+      mentions: ['alice', 'bob'],
     });
-    expect(ok.mentions).toEqual(['prs-alice', 'prs-bob']);
+    expect(ok.mentions).toEqual(['alice', 'bob']);
   });
 });
 
-describe('parseKindDefinition (flat storage)', () => {
+describe('parseKindDefinition (flat-vs-year)', () => {
   const PERSON_KIND = `---
 kind: person
-idPrefix: prs-
-bodyMode: append
-storage: flat
-idStrategy: slug
 dirName: people
 indexedFields: [aliases]
 ---
@@ -106,16 +97,46 @@ aliases: { type: 'string[]', required: false }
 \`\`\`
 `;
 
+  const JOURNAL_KIND = `---
+kind: journal
+dirName: journal
+slugLayout: year
+indexedFields: [date]
+---
+
+# journal
+
+## Frontmatter
+
+\`\`\`yaml
+date: { type: date, required: true }
+\`\`\`
+`;
+
   test('respects explicit dirName', () => {
     const def = parseKindDefinition(PERSON_KIND);
     expect(def.dirName).toBe('people');
-    expect(def.storage).toBe('flat');
-    expect(def.idStrategy).toBe('slug');
+    expect(def.slugLayout).toBe('flat');
   });
 
   test('person kind has no status machine', () => {
     const def = parseKindDefinition(PERSON_KIND);
     expect(def.statusMachine).toBeUndefined();
+  });
+
+  test('parses slugLayout: year', () => {
+    const def = parseKindDefinition(JOURNAL_KIND);
+    expect(def.slugLayout).toBe('year');
+  });
+
+  test('rejects unknown slugLayout', () => {
+    expect(() =>
+      parseKindDefinition(`---
+kind: bad
+slugLayout: monthly
+---
+`),
+    ).toThrow(/slugLayout/);
   });
 });
 
@@ -126,10 +147,6 @@ describe('KindRegistry', () => {
       join(dir, 'task.md'),
       `---
 kind: task
-idPrefix: tsk-
-bodyMode: append
-storage: date-bucketed
-idStrategy: timestamp
 indexedFields: [status]
 ---
 ## Frontmatter
@@ -143,10 +160,6 @@ status: { type: enum, values: [todo, done] }
       join(dir, 'person.md'),
       `---
 kind: person
-idPrefix: prs-
-bodyMode: append
-storage: flat
-idStrategy: slug
 dirName: people
 indexedFields: []
 ---
@@ -167,25 +180,21 @@ name: { type: string, required: true }
 
   test('get returns definition by kind name', async () => {
     const reg = await KindRegistry.load(setupDir());
-    expect(reg.get('task')!.idPrefix).toBe('tsk-');
+    expect(reg.get('task')!.dirName).toBe('tasks');
     expect(reg.get('nonexistent')).toBeUndefined();
   });
 
-  test('getByPrefix returns definition by id prefix', async () => {
+  test('getByDirName returns definition by directory', async () => {
     const reg = await KindRegistry.load(setupDir());
-    expect(reg.getByPrefix('tsk-')!.kind).toBe('task');
-    expect(reg.getByPrefix('prs-')!.kind).toBe('person');
-    expect(reg.getByPrefix('xxx-')).toBeUndefined();
+    expect(reg.getByDirName('tasks')!.kind).toBe('task');
+    expect(reg.getByDirName('people')!.kind).toBe('person');
+    expect(reg.getByDirName('nope')).toBeUndefined();
   });
 
   test('records duplicate kind as issue, keeps first one', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'loopany-kinds-dup-'));
     const def = `---
 kind: task
-idPrefix: tsk-
-bodyMode: append
-storage: date-bucketed
-idStrategy: timestamp
 indexedFields: []
 ---
 ## Frontmatter
@@ -208,10 +217,6 @@ title: { type: string, required: true }
       join(dir, 'good.md'),
       `---
 kind: task
-idPrefix: tsk-
-bodyMode: append
-storage: date-bucketed
-idStrategy: timestamp
 indexedFields: []
 ---
 ## Frontmatter
@@ -224,10 +229,7 @@ title: { type: string, required: true }
     writeFileSync(
       join(dir, 'broken.md'),
       `---
-idPrefix: bad-
-bodyMode: append
-storage: flat
-idStrategy: slug
+dirName: bad
 ---
 ## Frontmatter
 \`\`\`yaml
@@ -249,10 +251,6 @@ name: { type: string, required: true }
       join(dir, 'good.md'),
       `---
 kind: task
-idPrefix: tsk-
-bodyMode: append
-storage: date-bucketed
-idStrategy: timestamp
 indexedFields: []
 ---
 ## Frontmatter
@@ -266,7 +264,6 @@ title: { type: string, required: true }
       join(dir, 'syntax.md'),
       `---
 kind: broken
-idPrefix: brk-
 indexedFields: [unterminated
 ---
 ## Frontmatter

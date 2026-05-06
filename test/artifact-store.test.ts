@@ -1,4 +1,4 @@
-import { describe, expect, test, beforeEach } from 'bun:test';
+import { describe, expect, test } from 'bun:test';
 import { mkdtempSync, mkdirSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
@@ -11,10 +11,6 @@ async function setupRegistry(): Promise<KindRegistry> {
     join(dir, 'task.md'),
     `---
 kind: task
-idPrefix: tsk-
-bodyMode: append
-storage: date-bucketed
-idStrategy: timestamp
 indexedFields: [status]
 ---
 ## Frontmatter
@@ -35,10 +31,6 @@ transitions:
     join(dir, 'person.md'),
     `---
 kind: person
-idPrefix: prs-
-bodyMode: append
-storage: flat
-idStrategy: slug
 dirName: people
 indexedFields: []
 ---
@@ -58,27 +50,28 @@ function newWorkspace(): string {
 }
 
 describe('ArtifactStore.create', () => {
-  test('creates timestamp-based id under date-bucketed dir', async () => {
+  test('auto-mints a YYYYMMDD-HHMMSS-hex slug when none provided', async () => {
     const root = newWorkspace();
     const reg = await setupRegistry();
     const store = new ArtifactStore(root, reg);
 
     const a = await store.create('task', { title: 'Hello', status: 'todo' });
-    expect(a.id).toMatch(/^tsk-\d{8}-\d{6}$/);
-    expect(a.path).toContain('/artifacts/');
-    expect(a.path).toMatch(/\/\d{4}-\d{2}\//);
+    expect(a.id).toMatch(/^\d{8}-\d{6}-[0-9a-f]{3}$/);
+    expect(a.path).toContain('/artifacts/tasks/');
     expect(a.frontmatter.title).toBe('Hello');
     expect(a.frontmatter.status).toBe('todo');
+    expect(a.frontmatter.createdAt).toBeDefined();
+    expect(a.frontmatter.updatedAt).toBeDefined();
   });
 
-  test('creates slug-based id under flat dir', async () => {
+  test('creates with explicit slug under flat dir', async () => {
     const root = newWorkspace();
     const reg = await setupRegistry();
     const store = new ArtifactStore(root, reg);
 
     const a = await store.create('person', { name: 'Alice Chen' }, '', { slug: 'alice-chen' });
-    expect(a.id).toBe('prs-alice-chen');
-    expect(a.path).toContain('/artifacts/people/prs-alice-chen.md');
+    expect(a.id).toBe('alice-chen');
+    expect(a.path).toContain('/artifacts/people/alice-chen.md');
   });
 
   test('rejects unknown kind', async () => {
@@ -97,38 +90,27 @@ describe('ArtifactStore.create', () => {
     await expect(store.create('task', { status: 'todo' })).rejects.toThrow();
   });
 
-  test('rejects slug strategy without explicit slug', async () => {
-    const root = newWorkspace();
-    const reg = await setupRegistry();
-    const store = new ArtifactStore(root, reg);
-
-    await expect(store.create('person', { name: 'X' })).rejects.toThrow(/slug required/i);
-  });
-
   test('rejects slugs with invalid characters', async () => {
     const root = newWorkspace();
     const reg = await setupRegistry();
     const store = new ArtifactStore(root, reg);
 
     const bad = [
-      '../etc/passwd',     // path traversal
-      'alice/bob',         // path separator
-      'alice\\bob',        // backslash
-      '.hidden',           // leading dot
-      'Alice',             // uppercase
-      'alice chen',        // space
-      'alice_chen',        // underscore (kebab only)
-      '-alice',            // leading hyphen
-      'alice-',            // trailing hyphen
-      'alice--chen',       // double hyphen
-      '',                  // empty
-      'café',              // non-ASCII
+      '../etc/passwd',
+      'alice/bob',
+      'alice\\bob',
+      '.hidden',
+      'alice chen',
+      '-alice',
+      'alice-',
+      'alice--chen',
+      '',
     ];
     for (const slug of bad) {
       await expect(
         store.create('person', { name: 'X' }, '', { slug }),
         `slug "${slug}" should be rejected`,
-      ).rejects.toThrow(/invalid slug|slug required/i);
+      ).rejects.toThrow(/slug:/i);
     }
   });
 
@@ -137,34 +119,46 @@ describe('ArtifactStore.create', () => {
     const reg = await setupRegistry();
     const store = new ArtifactStore(root, reg);
 
-    const tooLong = 'a'.repeat(81);
+    const tooLong = 'a'.repeat(61);
     await expect(
       store.create('person', { name: 'X' }, '', { slug: tooLong }),
     ).rejects.toThrow(/too long/i);
   });
 
-  test('accepts canonical kebab-case slugs', async () => {
-    const root = newWorkspace();
+  test('accepts canonical slugs (kebab, CJK, diacritics, underscore)', async () => {
+    // Each slug needs its own workspace because case-insensitive filesystems
+    // (macOS APFS) collide between e.g. `Alice` and `alice` even though the
+    // slug validator treats them as distinct.
     const reg = await setupRegistry();
-    const store = new ArtifactStore(root, reg);
-
-    for (const slug of ['self', 'alice', 'alice-chen', 'fundraising-2027', 'a1', '2026-q2']) {
+    const slugs = [
+      'self',
+      'alice',
+      'alice-chen',
+      'fundraising-2027',
+      'a1',
+      '2026-q2',
+      'Alice',         // uppercase OK in v0.2
+      '产品发布',       // CJK OK
+      'café',          // diacritics OK
+      'alice_chen',    // underscore OK
+    ];
+    for (const slug of slugs) {
+      const root = newWorkspace();
+      const store = new ArtifactStore(root, reg);
       const a = await store.create('person', { name: slug }, '', { slug });
-      expect(a.id).toBe(`prs-${slug}`);
+      expect(a.id).toBe(slug);
     }
   });
 
-  test('handles same-second collision by appending -2', async () => {
+  test('rejects collision with existing slug', async () => {
     const root = newWorkspace();
     const reg = await setupRegistry();
     const store = new ArtifactStore(root, reg);
 
-    const a = await store.create('task', { title: 'a', status: 'todo' });
-    // Force same second by mocking — easier: just create back-to-back and accept
-    // that occasionally the test won't collide. Better: mock the clock.
-    // For v1 simplicity: pass an explicit "now" param to test the collision path.
-    const b = await store.create('task', { title: 'b', status: 'todo' }, '', { now: a.id.slice(4) });
-    expect(b.id).toBe(`${a.id}-2`);
+    await store.create('person', { name: 'Alice' }, '', { slug: 'alice' });
+    await expect(
+      store.create('person', { name: 'Alice2' }, '', { slug: 'alice' }),
+    ).rejects.toThrow(/already exists/i);
   });
 });
 
@@ -185,7 +179,7 @@ describe('ArtifactStore.get', () => {
     const root = newWorkspace();
     const reg = await setupRegistry();
     const store = new ArtifactStore(root, reg);
-    expect(await store.get('tsk-99999999-999999')).toBeNull();
+    expect(await store.get('99999999-999999-fff')).toBeNull();
   });
 });
 
@@ -234,7 +228,6 @@ describe('ArtifactStore.setStatus', () => {
     await store.setStatus(a.id, 'done', 'shipped');
     const updated = await store.get(a.id);
     expect(updated!.body).not.toContain('## Status');
-    // Original body + Outcome still there; no reason pollution
     expect(updated!.body).toContain('intro');
     expect(updated!.body).toContain('## Outcome');
   });
@@ -269,6 +262,17 @@ describe('ArtifactStore.setField', () => {
     const a = await store.create('task', { title: 'x', status: 'todo' });
     await expect(store.setField(a.id, 'bogus', 'v')).rejects.toThrow(/unknown field/i);
   });
+
+  test('accepts built-in fields (domain, createdAt, updatedAt, _backfilled)', async () => {
+    const root = newWorkspace();
+    const reg = await setupRegistry();
+    const store = new ArtifactStore(root, reg);
+
+    const a = await store.create('task', { title: 'x', status: 'todo' });
+    await store.setField(a.id, 'domain', 'ads');
+    const updated = await store.get(a.id);
+    expect(updated!.frontmatter.domain).toBe('ads');
+  });
 });
 
 describe('ArtifactStore.listAll', () => {
@@ -287,7 +291,7 @@ describe('ArtifactStore.listAll', () => {
     expect(kinds).toEqual(['person', 'task', 'task']);
   });
 
-  test('ignores non-directory entries under artifacts for date-bucketed kinds', async () => {
+  test('ignores non-directory entries under artifacts/', async () => {
     const root = newWorkspace();
     const reg = await setupRegistry();
     const store = new ArtifactStore(root, reg);

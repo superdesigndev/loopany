@@ -3,7 +3,7 @@
 //   1. User: "follow up with Alice next Tuesday about the contract"
 //   2. Agent records the inbound as a signal
 //   3. Agent creates the person (if missing)
-//   4. Agent creates a task with check_at + mentions
+//   4. Agent creates a task with checkAt + mentions
 //   5. Agent links signal → task (led-to)
 //   6. Tuesday: cron-via-/loop fires `followups --due today`
 //   7. Agent picks up the task, does the work
@@ -37,9 +37,9 @@ describe('scenario: follow up with Alice', () => {
     );
     expect(personCreate.code).toBe(0);
     const alice = JSON.parse(personCreate.stdout);
-    expect(alice.id).toBe('prs-alice-chen');
+    expect(alice.id).toBe('alice-chen');
 
-    // 4. Create the task with a past check_at so it's already due
+    // 4. Create the task with a past checkAt so it's already due
     const taskCreate = await runCli(
       ws, 'artifact', 'create',
       '--kind', 'task',

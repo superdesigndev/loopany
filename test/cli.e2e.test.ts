@@ -23,6 +23,7 @@ describe('loopany init', () => {
     const kinds = readdirSync(join(ws, 'kinds'));
     expect(kinds.sort()).toEqual([
       'brief.md',
+      'journal.md',
       'learning.md',
       'mission.md',
       'note.md',
@@ -79,6 +80,7 @@ describe('loopany kind list', () => {
     const kinds = JSON.parse(r.stdout);
     expect(kinds.map((k: { kind: string }) => k.kind).sort()).toEqual([
       'brief',
+      'journal',
       'learning',
       'mission',
       'note',
@@ -108,20 +110,20 @@ describe('loopany artifact create', () => {
       '--status', 'todo',
       '--priority', 'high',
       '--check-at', '2026-04-29',
-      '--mentions', 'prs-alice,prs-bob',
+      '--mentions', 'alice,bob',
       '--content', 'ping her about the contract',
     );
     expect(r.code).toBe(0);
     const result = JSON.parse(r.stdout);
-    expect(result.id).toMatch(/^tsk-\d{8}-\d{6}/);
+    expect(result.id).toMatch(/^\d{8}-\d{6}-[0-9a-f]{3}$/);
     expect(result.kind).toBe('task');
 
     const fileContent = readFileSync(result.path, 'utf-8');
     expect(fileContent).toContain('title: Follow up with Alice');
     expect(fileContent).toContain('priority: high');
-    expect(fileContent).toMatch(/check_at:\s*'?2026-04-29'?/);
-    expect(fileContent).toContain('- prs-alice');
-    expect(fileContent).toContain('- prs-bob');
+    expect(fileContent).toMatch(/checkAt:\s*'?2026-04-29'?/);
+    expect(fileContent).toContain('- alice');
+    expect(fileContent).toContain('- bob');
     expect(fileContent).toContain('ping her about the contract');
   });
 
@@ -137,8 +139,8 @@ describe('loopany artifact create', () => {
     );
     expect(r.code).toBe(0);
     const result = JSON.parse(r.stdout);
-    expect(result.id).toBe('prs-alice-chen');
-    expect(existsSync(join(ws, 'artifacts/people/prs-alice-chen.md'))).toBe(true);
+    expect(result.id).toBe('alice-chen');
+    expect(existsSync(join(ws, 'artifacts/people/alice-chen.md'))).toBe(true);
   });
 
   test('rejects invalid status enum with friendly error', async () => {
@@ -317,7 +319,7 @@ describe('loopany artifact get', () => {
 
   test('exits non-zero on missing id', async () => {
     const ws = await init();
-    const r = await runCli(ws, 'artifact', 'get', 'tsk-99999999-999999');
+    const r = await runCli(ws, 'artifact', 'get', '99999999-999999-fff');
     expect(r.code).not.toBe(0);
   });
 });
@@ -336,9 +338,12 @@ describe('loopany artifact list', () => {
     await runCli(ws, 'artifact', 'create', '--kind', 'task', '--title', 'b', '--status', 'running');
     await runCli(ws, 'artifact', 'create', '--kind', 'person', '--slug', 'alice', '--name', 'Alice');
 
+    // Filter out auto-managed journal entries that v0.2 creates per day.
     const r = await runCli(ws, 'artifact', 'list');
     expect(r.code).toBe(0);
-    const items = JSON.parse(r.stdout);
+    const items = JSON.parse(r.stdout).filter(
+      (m: { kind: string }) => m.kind !== 'journal',
+    );
     expect(items.length).toBe(3);
   });
 
@@ -393,7 +398,7 @@ describe('loopany artifact list', () => {
     expect(r.code).toBe(0);
     const items = JSON.parse(r.stdout);
     expect(items.length).toBe(1);
-    expect(items[0].id).toBe('prs-alice-chen');
+    expect(items[0].id).toBe('alice-chen');
   });
 
   test('combines multiple field filters (AND semantics)', async () => {
@@ -436,7 +441,7 @@ describe('loopany artifact list', () => {
     // Unrelated
     await runCli(ws, 'artifact', 'create', '--kind', 'task', '--title', 'other', '--status', 'todo', '--content', 'nothing here');
 
-    const r = await runCli(ws, 'artifact', 'list', '--contains', 'orbit');
+    const r = await runCli(ws, 'artifact', 'list', '--kind', 'task', '--contains', 'orbit');
     expect(r.code).toBe(0);
     const items = JSON.parse(r.stdout);
     expect(items.map((m: { frontmatter: { title: string } }) => m.frontmatter.title)).toEqual(['Fix orbit drift']);
@@ -459,7 +464,7 @@ describe('loopany artifact list', () => {
     const r = await runCli(ws, 'artifact', 'list', '--contains', 'stargaz');
     expect(r.code).toBe(0);
     const items = JSON.parse(r.stdout);
-    expect(items.map((m: { id: string }) => m.id)).toEqual(['prs-alice-chen']);
+    expect(items.map((m: { id: string }) => m.id)).toEqual(['alice-chen']);
   });
 });
 
@@ -504,6 +509,11 @@ describe('loopany artifact status', () => {
 });
 
 describe('loopany refs', () => {
+  // v0.2 auto-journal emits an implicit `mentions` edge for every artifact
+  // create. These tests care only about explicit edges, so filter them.
+  const explicit = (raw: string) =>
+    JSON.parse(raw).filter((e: { implicit?: boolean }) => !e.implicit);
+
   test('add via --to flag and query out direction', async () => {
     const ws = await init();
     const s = JSON.parse((await runCli(ws, 'artifact', 'create', '--kind', 'signal', '--title', 'noticed X')).stdout);
@@ -513,13 +523,13 @@ describe('loopany refs', () => {
     expect(add.code).toBe(0);
 
     const out = await runCli(ws, 'refs', s.id, '--direction', 'out');
-    const edges = JSON.parse(out.stdout);
+    const edges = explicit(out.stdout);
     expect(edges.length).toBe(1);
     expect(edges[0].to).toBe(t.id);
     expect(edges[0].relation).toBe('led-to');
 
     const incoming = await runCli(ws, 'refs', t.id, '--direction', 'in');
-    expect(JSON.parse(incoming.stdout).length).toBe(1);
+    expect(explicit(incoming.stdout).length).toBe(1);
   });
 
   test('--direction both returns combined', async () => {
@@ -531,7 +541,7 @@ describe('loopany refs', () => {
     await runCli(ws, 'refs', 'add', '--from', c.id, '--to', b.id, '--relation', 'follows-up');
 
     const r = await runCli(ws, 'refs', b.id, '--direction', 'both');
-    const edges = JSON.parse(r.stdout);
+    const edges = explicit(r.stdout);
     expect(edges.length).toBe(2);
   });
 
@@ -635,7 +645,12 @@ describe('loopany trace', () => {
     await runCli(ws, 'refs', 'add', '--from', a.id, '--to', b.id, '--relation', 'mentions');
 
     const r = JSON.parse((await runCli(ws, 'trace', a.id, '--relations', 'mentions')).stdout);
-    expect(r.nodes.map((n: { id: string }) => n.id).sort()).toEqual([a.id, b.id].sort());
+    // v0.2 auto-journal also creates an implicit `mentions` edge from today's
+    // journal to A. Filter it out — we care about A → B.
+    const ids = r.nodes
+      .map((n: { id: string }) => n.id)
+      .filter((id: string) => id === a.id || id === b.id);
+    expect(ids.sort()).toEqual([a.id, b.id].sort());
   });
 
   test('terminates on cycles', async () => {
@@ -665,14 +680,14 @@ describe('loopany trace', () => {
 
   test('rejects unknown id', async () => {
     const ws = await init();
-    const r = await runCli(ws, 'trace', 'tsk-99999999-999999');
+    const r = await runCli(ws, 'trace', '99999999-999999-fff');
     expect(r.code).not.toBe(0);
     expect(r.stderr).toContain('No artifact');
   });
 });
 
 describe('loopany followups', () => {
-  test('returns tasks with check_at <= today', async () => {
+  test('returns tasks with checkAt <= today', async () => {
     const ws = await init();
     await runCli(ws, 'artifact', 'create', '--kind', 'task', '--title', 'past', '--status', 'todo', '--check-at', '2020-01-01');
     await runCli(ws, 'artifact', 'create', '--kind', 'task', '--title', 'future', '--status', 'todo', '--check-at', '2099-12-31');
@@ -759,7 +774,7 @@ describe('loopany doctor', () => {
     const ws = await init();
     const r = await runCli(ws, 'doctor');
     expect(r.code).not.toBe(0);
-    expect(r.stdout.toLowerCase()).toMatch(/onboard|prs-self|mission/);
+    expect(r.stdout.toLowerCase()).toMatch(/onboard|self|mission/);
   });
 
   test('all green after onboarding', async () => {
@@ -837,7 +852,7 @@ describe('loopany doctor', () => {
     const ws = await init();
     const t = JSON.parse((await runCli(ws, 'artifact', 'create', '--kind', 'task', '--title', 't', '--status', 'todo')).stdout);
     // Dangling: target doesn't exist
-    await runCli(ws, 'refs', 'add', '--from', t.id, '--to', 'tsk-99999999-999999', '--relation', 'led-to');
+    await runCli(ws, 'refs', 'add', '--from', t.id, '--to', '99999999-999999-fff', '--relation', 'led-to');
 
     const r = await runCli(ws, 'doctor');
     expect(r.code).not.toBe(0);
@@ -1045,10 +1060,6 @@ describe('domain pack kinds', () => {
       join(ws, 'domains', 'crm', 'kinds', 'deal.md'),
       `---
 kind: deal
-idPrefix: dea-
-bodyMode: append
-storage: flat
-idStrategy: slug
 dirName: deals
 indexedFields: [status]
 ---
@@ -1074,7 +1085,7 @@ status: { type: enum, values: [open, won, lost] }
     // Can create an artifact of the new kind
     const r = await runCli(ws, 'artifact', 'create', '--kind', 'deal', '--slug', 'acme-q2', '--title', 'Acme Q2', '--status', 'open', '--domain', 'crm');
     expect(r.code).toBe(0);
-    expect(JSON.parse(r.stdout).id).toBe('dea-acme-q2');
+    expect(JSON.parse(r.stdout).id).toBe('acme-q2');
   });
 
   test('disabling a domain hides its kinds but keeps existing artifacts readable', async () => {
@@ -1085,10 +1096,6 @@ status: { type: enum, values: [open, won, lost] }
       join(ws, 'domains', 'crm', 'kinds', 'deal.md'),
       `---
 kind: deal
-idPrefix: dea-
-bodyMode: append
-storage: flat
-idStrategy: slug
 dirName: deals
 indexedFields: []
 ---
@@ -1181,7 +1188,11 @@ describe('frontmatter mentions as implicit graph edges', () => {
     );
 
     const r = await runCli(ws, 'refs', person.id, '--direction', 'in');
-    const edges = JSON.parse(r.stdout);
+    // v0.2 auto-journal also mentions person via its body wiki-link.
+    // Filter to frontmatter actor — this test is about frontmatter mentions.
+    const edges = JSON.parse(r.stdout).filter(
+      (e: { actor: string }) => e.actor === 'frontmatter',
+    );
     const froms = edges.map((e: { from: string }) => e.from).sort();
     expect(froms).toEqual([a.id, b.id].sort());
     expect(edges.every((e: { implicit: boolean }) => e.implicit)).toBe(true);
@@ -1216,9 +1227,11 @@ describe('frontmatter mentions as implicit graph edges', () => {
       (await runCli(ws, 'artifact', 'create', '--kind', 'task', '--title', 't', '--status', 'todo', '--mentions', p.id)).stdout,
     );
 
+    // v0.2 auto-journal also generates a body→person mention edge; filter
+    // to the frontmatter actor — that's what this test is checking.
     const mentionsOnly = JSON.parse(
       (await runCli(ws, 'refs', p.id, '--direction', 'in', '--relation', 'mentions')).stdout,
-    );
+    ).filter((e: { actor: string }) => e.actor === 'frontmatter');
     expect(mentionsOnly.length).toBe(1);
 
     const ledToOnly = JSON.parse(
@@ -1269,7 +1282,10 @@ describe('body [[link]] as implicit graph edges', () => {
     expect(edges.find((e: { from: string }) => e.from === task.id)).toBeUndefined();
   });
 
-  test('body link to unknown prefix is ignored (no edge, no dangling)', async () => {
+  test('body link to unresolved id surfaces as a dangling edge in doctor', async () => {
+    // v0.2: there are no kind prefixes — every slug-shaped `[[id]]` is a
+    // candidate, validated against the artifact set at index time. A link
+    // whose target doesn't exist becomes a dangling edge that doctor flags.
     const ws = await init();
     await runCli(ws, 'artifact', 'create', '--kind', 'person', '--slug', 'self', '--name', 'X');
     const g = JSON.parse(
@@ -1284,14 +1300,16 @@ describe('body [[link]] as implicit graph edges', () => {
       )).stdout,
     );
 
-    // Only the frontmatter mentions edge should exist — [[foo-bar]] is ignored
+    // Frontmatter mentions edge + body wiki-link to foo-bar = 2 outgoing.
     const edges = JSON.parse((await runCli(ws, 'refs', task.id, '--direction', 'out')).stdout);
-    expect(edges.length).toBe(1);
-    expect(edges[0].to).toBe(g.id);
+    expect(edges.length).toBe(2);
+    const tos = edges.map((e: { to: string }) => e.to).sort();
+    expect(tos).toEqual(['foo-bar', g.id].sort());
 
+    // Doctor surfaces the unresolved [[foo-bar]] as a dangling edge.
     const doc = await runCli(ws, 'doctor');
-    expect(doc.code).toBe(0);
-    expect(doc.stdout).not.toContain('DANGLING');
+    expect(doc.code).not.toBe(0);
+    expect(doc.stdout.toLowerCase()).toContain('dangling');
   });
 
   test('frontmatter + body links combine (both show up)', async () => {

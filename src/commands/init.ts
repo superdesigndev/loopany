@@ -6,6 +6,7 @@ import { existsSync, readdirSync } from 'fs';
 import { mkdir, readdir, copyFile, writeFile } from 'fs/promises';
 import { join, resolve } from 'path';
 import { getWorkspaceRoot } from '../core/engine.ts';
+import { SCHEMA_VERSION } from '../version.ts';
 
 const BUNDLED_KINDS = resolve(import.meta.dir, '..', '..', 'skills', 'loopany-core', 'kinds');
 
@@ -19,7 +20,11 @@ export async function runInit(): Promise<{ root: string; created: string[]; need
 
   const configPath = join(root, 'config.yaml');
   if (!existsSync(configPath)) {
-    await writeFile(configPath, '# loopany workspace config\n', 'utf-8');
+    await writeFile(
+      configPath,
+      `# loopany workspace config\nschemaVersion: ${SCHEMA_VERSION}\n`,
+      'utf-8',
+    );
     created.push(configPath);
   }
 

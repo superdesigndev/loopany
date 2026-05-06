@@ -5,7 +5,7 @@
 //   kinds            — every kind def parses cleanly
 //   artifacts        — every frontmatter passes its kind's zod schema
 //   references       — no dangling edges (both endpoints exist)
-//   onboarding       — prs-self artifact + ≥1 active mission
+//   onboarding       — `self` person artifact + ≥1 active mission
 //   mission coverage — (warn) every task mentions a mission
 //   domain coverage  — (warn) artifact domains are in enabled_domains
 //
@@ -15,6 +15,7 @@
 
 import type { Engine } from '../core/engine.ts';
 import { parseArgs } from './argv.ts';
+import { SCHEMA_VERSION } from '../version.ts';
 
 export interface CheckResult {
   name: string;
@@ -41,6 +42,22 @@ export async function runDoctor(engine: Engine, args: string[]): Promise<DoctorR
     name: 'workspace',
     status: 'ok',
     detail: engine.root,
+  });
+
+  // 1.5 Schema version — doctor runs with the version check bypassed so it
+  // can *report* the mismatch instead of crashing. Mismatch = fail; the
+  // message points at the migration skill.
+  const wsVer = engine.config.schemaVersion();
+  const versionOk = wsVer === SCHEMA_VERSION;
+  checks.push({
+    name: 'schema version',
+    status: versionOk ? 'ok' : 'fail',
+    detail: versionOk
+      ? `v${wsVer}`
+      : `workspace v${wsVer}, binary expects v${SCHEMA_VERSION}`,
+    problems: versionOk
+      ? undefined
+      : [`run \`loopany migrate v${wsVer}-to-v${SCHEMA_VERSION}\``],
   });
 
   // 2. Kinds — load issues are tolerated at boot; surface them here so a
@@ -118,8 +135,8 @@ export async function runDoctor(engine: Engine, args: string[]): Promise<DoctorR
 
   // 5. Onboarding
   const onboardingProblems: string[] = [];
-  if (!idx.byId('prs-self')) {
-    onboardingProblems.push('prs-self artifact missing — run onboarding (Phase 3 step 2)');
+  if (!idx.byId('self')) {
+    onboardingProblems.push('self person artifact missing — run onboarding (Phase 3 step 2)');
   }
   const activeMissions = idx.byKind('mission').filter((m) => m.frontmatter.status === 'active');
   if (activeMissions.length === 0) {
@@ -130,7 +147,7 @@ export async function runDoctor(engine: Engine, args: string[]): Promise<DoctorR
     status: onboardingProblems.length === 0 ? 'ok' : 'fail',
     detail:
       onboardingProblems.length === 0
-        ? `prs-self present, ${activeMissions.length} active mission(s)`
+        ? `self present, ${activeMissions.length} active mission(s)`
         : 'incomplete',
     problems: onboardingProblems.length ? onboardingProblems : undefined,
   });

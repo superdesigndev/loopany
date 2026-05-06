@@ -1,6 +1,6 @@
 ---
 name: loopany-reflect
-description: "Self-improvement loop for loopany. Reads recent task outcomes + dismissed signals, discovers patterns, writes learning and skill-proposal artifacts. Also handles accepting/rejecting proposals. Triggers: 'reflect', 'what have we learned', 'improve yourself', ≥3 tasks done recently, 'accept spr-…', 'reject spr-…', 'review proposals', writing a learning or skill-proposal from any source."
+description: "Self-improvement loop for loopany. Reads recent task outcomes + dismissed signals, discovers patterns, writes learning and skill-proposal artifacts. Also handles accepting/rejecting proposals. Triggers: 'reflect', 'what have we learned', 'improve yourself', ≥3 tasks done recently, 'accept <proposal-id>', 'reject <proposal-id>', 'review proposals', writing a learning or skill-proposal from any source."
 ---
 
 # loopany-reflect — self-improvement loop
@@ -30,12 +30,12 @@ loopany artifact list --kind learning --status active
 loopany artifact list --kind skill-proposal --status rejected
 ```
 
-Filter to recent by ID prefix (`tsk-YYYYMMDD-HHMMSS`). Default window ≈ 1 week.
+Filter to recent by `createdAt` (newest first). Default window ≈ 1 week.
 
 **Filter out already-processed evidence.** Union `evidence` fields from
 active learnings and non-rejected proposals → subtract from candidates.
 
-**Exception**: `learning` revalidation on `check_at` belongs in
+**Exception**: `learning` revalidation on `checkAt` belongs in
 `loopany-review § Daily`, not here. Reflect looks forward; daily review
 looks back.
 
@@ -59,17 +59,18 @@ For each fresh candidate: `loopany artifact get <id>`
 
 ```bash
 loopany artifact create --kind learning \
+  --slug short-attention-spans-2026 \
   --title "<declarative belief sentence>" \
-  --evidence "tsk-...,tsk-..." \
-  --mentions "mis-..." \
+  --evidence "<task-slug-1>,<task-slug-2>" \
+  --mentions "<mission-slug>" \
   --check-at 2026-07-22 \
   --content "$(cat <<'EOF'
 ## Observation
 <what you saw across evidence>
 
 ## Evidence
-- tsk-xxx — "<outcome summary>"
-- tsk-yyy — "<outcome summary>"
+- <task-slug-1> — "<outcome summary>"
+- <task-slug-2> — "<outcome summary>"
 
 ## Scope
 <when this applies and doesn't>
@@ -80,7 +81,7 @@ EOF
 )"
 ```
 
-Key fields: title = belief itself, evidence ≥ 2 IDs, check_at 1-3 months.
+Key fields: title = belief itself, evidence ≥ 2 IDs, checkAt 1-3 months.
 
 ### Step 4 — Write a skill-proposal (if warranted)
 
@@ -95,7 +96,7 @@ Required body sections:
 3. `## Expected effect` — short-term and long-term
 4. `## Check-at` — why this date
 
-**When `change_type: add`** (new skill):
+**When `changeType: add`** (new skill):
 - `--target-skill` = to-be-created path
 - `## Proposed change` must name existing skills considered and why rejected
 - Add `## Skill draft` (full SKILL.md with frontmatter) + `## Resolver entry`
@@ -103,13 +104,13 @@ Required body sections:
 ### Step 5 — Verify evidence chain
 
 ```bash
-loopany trace <spr-id> --direction backward
+loopany trace <proposal-slug> --direction backward
 ```
 
 If learning supersedes an older one:
 ```bash
-loopany refs add --from lrn-NEW --to lrn-OLD --relation supersedes
-loopany artifact status lrn-OLD superseded --reason "superseded by lrn-NEW"
+loopany refs add --from <new-learning> --to <old-learning> --relation supersedes
+loopany artifact status <old-learning> superseded --reason "superseded by <new-learning>"
 ```
 
 ---
@@ -118,7 +119,7 @@ loopany artifact status lrn-OLD superseded --reason "superseded by lrn-NEW"
 
 ### When to run
 
-- "accept spr-...", "reject spr-...", "let's take that proposal"
+- "accept <proposal-slug>", "reject <proposal-slug>", "let's take that proposal"
 - Batch review of pending proposals
 
 ```bash
@@ -127,19 +128,19 @@ loopany artifact list --kind skill-proposal --status pending
 
 ### Accept flow
 
-1. Read proposal: `loopany artifact get <spr-id>`
-2. Read cited learning: `loopany refs <spr-id> --direction out --relation mentions`
+1. Read proposal: `loopany artifact get <proposal-slug>`
+2. Read cited learning: `loopany refs <proposal-slug> --direction out --relation mentions`
 3. Read current target file
 4. Apply edit faithfully — only the described change
 5. Append `## Outcome` to proposal (what literally changed, interpretations)
-6. Flip status: `loopany artifact status <spr-id> accepted --reason "..."`
+6. Flip status: `loopany artifact status <proposal-slug> accepted --reason "..."`
 7. Git commit: target file + proposal together
 
 ### Reject flow
 
 1. Read proposal
 2. Append `## Outcome` with reason — future reflect reads this
-3. Flip status: `loopany artifact status <spr-id> rejected --reason "..."`
+3. Flip status: `loopany artifact status <proposal-slug> rejected --reason "..."`
 
 ### Edge cases
 

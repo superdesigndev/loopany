@@ -1,9 +1,5 @@
 ---
 kind: note
-idPrefix: nte-
-bodyMode: append
-storage: flat
-idStrategy: slug
 dirName: notes
 indexedFields: [tags]
 ---
@@ -27,7 +23,7 @@ these holds:
    sections (e.g. `reflect` reads `## Outcome` from tasks)
 
 If none of the above hold, it's a `note`. ID is a human-supplied slug
-(`nte-project-phoenix`, `nte-karpathy-llm-talk`) so the file is
+(`project-phoenix`, `karpathy-llm-talk`) so the file is
 addressable without a timestamp prefix.
 
 ## Frontmatter

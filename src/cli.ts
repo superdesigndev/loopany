@@ -3,7 +3,12 @@ import { existsSync } from 'fs';
 import { join } from 'path';
 import { ZodError } from 'zod';
 import { VERSION } from './version.ts';
-import { bootstrap, getWorkspaceRoot, WorkspaceNotFoundError } from './core/engine.ts';
+import {
+  bootstrap,
+  getWorkspaceRoot,
+  WorkspaceNotFoundError,
+  SchemaVersionMismatchError,
+} from './core/engine.ts';
 import { AuditLog } from './core/audit.ts';
 import { runInit } from './commands/init.ts';
 import { runKindList } from './commands/kind-list.ts';
@@ -21,6 +26,7 @@ import { runDomainList, runDomainEnable, runDomainDisable } from './commands/dom
 import { runFactory } from './commands/factory.ts';
 import { runSearch } from './commands/search.ts';
 import { runReindex } from './commands/reindex.ts';
+import { runMigrate, formatMigrateList, formatMigrateDescribe } from './commands/migrate.ts';
 
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
@@ -66,6 +72,10 @@ async function main(): Promise<void> {
 
   if (caught) {
     if (caught instanceof WorkspaceNotFoundError) {
+      console.error(`Error: ${caught.message}`);
+      process.exit(1);
+    }
+    if (caught instanceof SchemaVersionMismatchError) {
       console.error(`Error: ${caught.message}`);
       process.exit(1);
     }
@@ -251,8 +261,25 @@ async function dispatch(
       process.stdout.write(JSON.stringify(result, null, 2) + '\n');
       return;
     }
+    case 'migrate': {
+      // Migrate must work on a stale workspace by definition — bypass the
+      // version check that other commands enforce.
+      const engine = await bootstrap({ skipVersionCheck: true });
+      const result = await runMigrate(engine, _rest);
+      meta.workspace_version = engine.config.schemaVersion();
+      if (result.kind === 'list') {
+        meta.target = result.result.next?.name;
+        process.stdout.write(formatMigrateList(result.result));
+      } else {
+        meta.target = result.entry.name;
+        process.stdout.write(
+          formatMigrateDescribe(result.entry, result.skill, result.scripts),
+        );
+      }
+      return;
+    }
     case 'doctor': {
-      const engine = await bootstrap();
+      const engine = await bootstrap({ skipVersionCheck: true });
       const report = await runDoctor(engine, _rest);
       meta.ok = report.ok;
       meta.failed_checks = report.checks.filter((c) => c.status === 'fail').map((c) => c.name);
@@ -302,7 +329,7 @@ DOMAINS
   domain disable <name>                 Disable a domain
 
 SCHEDULING
-  followups [--due today|overdue]       Find due check_at items
+  followups [--due today|overdue]       Find due checkAt items
 
 SEARCH
   reindex [--force] [--no-embed]        Rebuild hybrid search index from artifacts
@@ -315,6 +342,7 @@ UI
 SYSTEM
   kind list                             Show registered kinds
   doctor                                Check workspace integrity
+  migrate [<name>]                      List or describe schema migrations
   --version                             Print version
 
 EXAMPLES
@@ -328,8 +356,8 @@ EXAMPLES
     artifact create --kind note    --title "..." --content "..."
 
     refs add --from <id> --to <id> --relation mentions
-    artifact status tsk-... done --reason "shipped"
-    artifact status tsk-... failed --reason "blocked"
+    artifact status <task-slug> done --reason "shipped"
+    artifact status <task-slug> failed --reason "blocked"
 `);
 }
 

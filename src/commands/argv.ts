@@ -31,7 +31,7 @@ export function parseArgs(args: string[]): ParsedArgs {
   return { positional, flags };
 }
 
-/** Convert kebab-case flag name to snake_case frontmatter field name. */
+/** Convert kebab-case flag name to camelCase frontmatter field name. */
 export function flagToField(flag: string): string {
-  return flag.replace(/-/g, '_');
+  return flag.replace(/-([a-z0-9])/g, (_, ch: string) => ch.toUpperCase());
 }

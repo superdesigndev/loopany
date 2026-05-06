@@ -20,10 +20,10 @@ A's perspective). To find the inverse, query `--direction in`.
 A is the cause; B is what came of it. The most common verb.
 
 ```bash
-loopany refs add --from sig-... --to tsk-... --relation led-to
+loopany refs add --from <signal-slug> --to <task-slug> --relation led-to
 # "this signal led to that task"
 
-loopany refs add --from tsk-... --to brf-... --relation led-to
+loopany refs add --from <task-slug> --to <brief-slug> --relation led-to
 # "this task's outcome led to next morning's briefing"
 ```
 
@@ -35,13 +35,21 @@ Use when one task subsumes / acts on multiple signals or sub-tasks. Stronger
 than `led-to`: it claims the action **resolves** the upstream observation.
 
 ```bash
-loopany refs add --from tsk-output-v2-refactor --to sig-architecture-smell-1 --relation addresses
-loopany refs add --from tsk-output-v2-refactor --to sig-architecture-smell-2 --relation addresses
+loopany refs add --from output-v2-refactor --to architecture-smell-1 --relation addresses
+loopany refs add --from output-v2-refactor --to architecture-smell-2 --relation addresses
 # Refactor addresses both architectural concerns
 ```
 
 > Convention: `led-to` is **weak causal** ("this resulted in that, eventually").
 > `addresses` is **strong responsibility** ("this is the action handling that").
+
+The signal-close pattern (atomic status flip + `addresses` edge) is the canonical use:
+
+```bash
+loopany artifact status <signal-slug> addressed --addressed-by <task-slug>
+```
+
+This writes the `<task> addresses <signal>` edge and flips the status in one call.
 
 ### `mentions` — A references B in passing
 
@@ -53,28 +61,27 @@ mention edge; pick whichever fits the writing moment:
 
 ```markdown
 ## Outcome
-Pairing with [[prs-alice-chen]] on the [[tsk-20260422-103045]] refactor paid off —
+Pairing with [[alice-chen]] on the [[output-v2-refactor]] paid off —
 we caught the cache thrash before prod.
 ```
 
-The runtime scans every artifact body for `[[<prefix>-...>]]` patterns whose
-prefix is a registered kind (`tsk-`, `prs-`, `mis-`, ...). Code blocks
-(fenced ```` ``` ```` or inline \`...\`) are skipped so examples in prose
-don't generate spurious edges.
+The runtime scans every artifact body for `[[<slug>]]` patterns and emits a
+`mentions` edge for each. Targets that don't resolve to an existing artifact
+surface as dangling edges in `loopany doctor`. Code blocks (fenced ```` ``` ````
+or inline \`...\`) are skipped so prose examples don't generate spurious edges.
 
 **(b) Frontmatter array** (preferred when the mention is structural — mission
 attribution, primary stakeholder):
 
 ```yaml
-# in tsk-... frontmatter
-mentions: [prs-alice, mis-fundraising-2026]
+mentions: [alice-chen, fundraising-2027]
 ```
 
 **(c) Explicit graph edge** (use only when you didn't write the mention in
 body or frontmatter at creation time, and don't want to edit the artifact):
 
 ```bash
-loopany refs add --from tsk-... --to prs-alice --relation mentions
+loopany refs add --from <task-slug> --to alice-chen --relation mentions
 ```
 
 All three produce the same semantic edge. (a) and (b) are **implicit edges**
@@ -82,7 +89,7 @@ in the graph — they live in the artifact, not in `references.jsonl`, and
 change automatically when you edit the source. (c) is a **persisted edge**
 in `references.jsonl`.
 
-Query: `loopany refs prs-alice --direction in` returns all three kinds
+Query: `loopany refs alice-chen --direction in` returns all three kinds
 together. Implicit edges carry `"implicit": true` and `"actor": "body" |
 "frontmatter"` in the JSON if you need to tell them apart.
 
@@ -97,11 +104,11 @@ typically flipped to a terminal status (`superseded`, `archived`).
 
 ```bash
 loopany artifact create --kind mission --slug fundraising-2027 --title "..." --status active
-loopany artifact status mis-fundraising-2026 abandoned --reason "fundraise complete; new mission"
-loopany refs add --from mis-fundraising-2027 --to mis-fundraising-2026 --relation supersedes
+loopany artifact status fundraising-2026 abandoned --reason "fundraise complete; new mission"
+loopany refs add --from fundraising-2027 --to fundraising-2026 --relation supersedes
 ```
 
-Same pattern for re-onboarding (new prs-self → old prs-self), mission shifts,
+Same pattern for re-onboarding (new self → old self), mission shifts,
 and architecture rewrites.
 
 ### `follows-up` — B is a continuation of A
@@ -111,10 +118,10 @@ step. Distinct from `led-to`: A wasn't necessarily the *cause* of B, but B
 **continues the thread**.
 
 ```bash
-loopany refs add --from tsk-investor-followup-may --to tsk-investor-meeting-april --relation follows-up
+loopany refs add --from investor-followup-may --to investor-meeting-april --relation follows-up
 ```
 
-A natural pattern: every `task` with `check_at` future-dated is implicitly
+A natural pattern: every `task` with `checkAt` future-dated is implicitly
 a follow-up of the task that scheduled it. When the future task is created,
 add the explicit edge.
 
@@ -124,8 +131,8 @@ Use when A's body draws on B as fact. Especially useful for `brief` artifacts
 that summarize multiple `task` outcomes.
 
 ```bash
-loopany refs add --from brf-weekly-2026-04-22 --to tsk-investor-meeting-1 --relation cites
-loopany refs add --from brf-weekly-2026-04-22 --to tsk-investor-meeting-2 --relation cites
+loopany refs add --from weekly-2026-04-22 --to investor-meeting-1 --relation cites
+loopany refs add --from weekly-2026-04-22 --to investor-meeting-2 --relation cites
 ```
 
 The `brief` body says "Three meetings landed; one stalled" — the `cites`
@@ -137,11 +144,11 @@ edges back-reference the source artifacts so the user can drill in.
 
 ```bash
 # WRONG — this is the same fact stored twice
-loopany refs add --from sig-1 --to tsk-1 --relation led-to
-loopany refs add --from tsk-1 --to sig-1 --relation caused-by
+loopany refs add --from observed-issue --to fix-task --relation led-to
+loopany refs add --from fix-task --to observed-issue --relation caused-by
 ```
 
-The reverse query (`refs sig-1 --direction in`) gives you the same answer
+The reverse query (`refs observed-issue --direction in`) gives you the same answer
 without the duplication.
 
 ### ❌ Inventing synonyms

@@ -1,6 +1,6 @@
 ---
 name: loopany-core
-description: "Artifact lifecycle for loopany — the agent brain. Use when creating, modifying, or querying any artifact (task, signal, learning, skill-proposal, mission, person, note, brief). Read this SKILL.md first for routing, then the relevant kind's Playbook. Triggers: any artifact CRUD, 'create a task', 'write a signal', 'dismiss signal', 'flip to done', 'what kind should this be', choosing a relation verb."
+description: "Artifact lifecycle for loopany — the agent brain. Use when creating, modifying, or querying any artifact (task, signal, learning, skill-proposal, mission, person, note, brief, journal). Read this SKILL.md first for routing, then the relevant kind's Playbook. Triggers: any artifact CRUD, 'create a task', 'write a signal', 'dismiss signal', 'flip to done', 'what kind should this be', choosing a relation verb."
 ---
 
 # loopany-core — artifact operations
@@ -33,6 +33,7 @@ guide (§ Playbook). Read the kind file before creating or modifying.
 | Writing a brief | `kinds/brief.md` |
 | Recording a person entity | `kinds/person.md` |
 | Anything else | `kinds/note.md` |
+| What was created today (read-only) | `kinds/journal.md` |
 
 ## Decision rule
 

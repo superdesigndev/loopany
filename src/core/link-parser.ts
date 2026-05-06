@@ -1,25 +1,27 @@
 // Extracts wiki-style `[[<id>]]` references from artifact body content.
-// Only matches strings beginning with a known kind idPrefix (e.g. `tsk-`,
-// `prs-`). Skips matches inside fenced code blocks and inline code spans
-// so prose examples don't generate spurious graph edges.
 //
-// Usage:
-//   const prefixes = new Set(registry.list().map(k => k.idPrefix));
-//   const ids = extractLinks(body, prefixes);
+// In v0.2 there are no kind prefixes — any string matching the slug
+// charset is a candidate. The graph builder still checks each target
+// against the artifact set, so noise (typos, prose like `[[example]]`)
+// surfaces as dangling edges in `loopany doctor`, not as silently-broken
+// references.
+//
+// Skips matches inside fenced code blocks and inline code spans so prose
+// examples don't generate spurious graph edges.
 
 const WIKI_LINK_RE = /\[\[([^\]\s]+?)\]\]/g;
+// Same Unicode charset as src/core/slug.ts. Inlined to avoid the import
+// cycle (slug → markdown → link-parser).
+const SLUG_LIKE_RE = /^[\p{L}\p{M}\p{N}\-_]+$/u;
 
-export function extractLinks(body: string, validPrefixes: Set<string>): string[] {
+export function extractLinks(body: string): string[] {
   const stripped = stripCode(body);
   const out: string[] = [];
   let m: RegExpExecArray | null;
   const re = new RegExp(WIKI_LINK_RE.source, 'g');
   while ((m = re.exec(stripped)) !== null) {
     const candidate = m[1];
-    const dashIdx = candidate.indexOf('-');
-    if (dashIdx < 0) continue;
-    const prefix = candidate.slice(0, dashIdx + 1);
-    if (!validPrefixes.has(prefix)) continue;
+    if (!SLUG_LIKE_RE.test(candidate)) continue;
     out.push(candidate);
   }
   return out;
@@ -34,7 +36,6 @@ function stripCode(body: string): string {
   const out: string[] = [];
   let i = 0;
   while (i < body.length) {
-    // Fenced code block: ``` ... ```
     if (body.startsWith('```', i)) {
       const end = body.indexOf('```', i + 3);
       const stop = end === -1 ? body.length : end + 3;
@@ -42,7 +43,6 @@ function stripCode(body: string): string {
       i = stop;
       continue;
     }
-    // Inline code: `...`
     if (body[i] === '`') {
       const end = body.indexOf('`', i + 1);
       if (end === -1) {

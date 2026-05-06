@@ -4,10 +4,8 @@ import type { Engine } from '../core/engine.ts';
 
 export interface KindListEntry {
   kind: string;
-  idPrefix: string;
-  storage: string;
-  idStrategy: string;
   dirName: string;
+  slugLayout: string;
   indexedFields: string[];
   hasStatusMachine: boolean;
 }
@@ -15,10 +13,8 @@ export interface KindListEntry {
 export function runKindList(engine: Engine): KindListEntry[] {
   return engine.registry.list().map((k) => ({
     kind: k.kind,
-    idPrefix: k.idPrefix,
-    storage: k.storage,
-    idStrategy: k.idStrategy,
     dirName: k.dirName,
+    slugLayout: k.slugLayout,
     indexedFields: k.indexedFields,
     hasStatusMachine: !!k.statusMachine,
   }));

@@ -1,10 +1,6 @@
 ---
 kind: task
-idPrefix: tsk-
-bodyMode: append
-storage: date-bucketed
-idStrategy: timestamp
-indexedFields: [status, priority, check_at]
+indexedFields: [status, priority, checkAt]
 ---
 
 # task
@@ -21,7 +17,7 @@ title:         { type: string, required: true }
 domain:        { type: string, required: false }
 status:        { type: enum, values: [todo, running, in_review, done, failed, cancelled] }
 priority:      { type: enum, values: [low, medium, high, critical], default: medium }
-check_at:      { type: date, required: false }   # `loopany followups` reads this
+checkAt:       { type: date, required: false }   # `loopany followups` reads this
 mentions:      { type: 'string[]', required: false }
 ```
 
@@ -94,23 +90,23 @@ loopany artifact append <id> --section Outcome --content "..."
 loopany artifact status <id> <done|failed> --reason "<one line>"
 ```
 
-### `check_at`
+### `checkAt`
 
 Set only with a concrete future question. `loopany followups --due today`
-reads it. Missing `check_at` > a date you'll ignore.
+reads it. Missing `checkAt` > a date you'll ignore.
 
 ### From signal → task
 
 When a signal becomes work, create a task. After the task closes:
 ```bash
-loopany artifact status sig-... addressed --addressed-by tsk-...
+loopany artifact status <sig-id> addressed --addressed-by <tsk-id>
 ```
 
 ### Follow-up scheduling
 
 ```bash
 loopany artifact create --kind task --title "..." --status todo --check-at 2026-05-06
-loopany refs add --from tsk-future --to tsk-today --relation follows-up
+loopany refs add --from <future-tsk> --to <current-tsk> --relation follows-up
 ```
 
 ### Anti-patterns

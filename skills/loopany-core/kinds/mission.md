@@ -1,9 +1,5 @@
 ---
 kind: mission
-idPrefix: mis-
-bodyMode: append
-storage: flat
-idStrategy: slug
 dirName: missions
 indexedFields: [status, hypothesis]
 ---

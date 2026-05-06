@@ -26,7 +26,7 @@ Match the trigger, read the target skill, then act.
 | Any artifact CRUD (create/get/list/append/status/set) | core | `../loopany-core/SKILL.md` |
 | Substantive work just ended (PR shipped, incident resolved, decision made) | capture | `../loopany-capture/SKILL.md` |
 | "reflect" / "what have we learned" / ≥3 tasks done / writing learning or skill-proposal | reflect | `../loopany-reflect/SKILL.md` |
-| "accept spr-…" / "reject spr-…" / review proposals | reflect | `../loopany-reflect/SKILL.md` |
+| "accept &lt;proposal-slug&gt;" / "reject &lt;proposal-slug&gt;" / review proposals | reflect | `../loopany-reflect/SKILL.md` |
 | "what's due today" / daily check-in / session start | review (daily) | `../loopany-review/SKILL.md` |
 | "what's slipping" / "weekly check" / "is the workspace healthy" | review (weekly) | `../loopany-review/SKILL.md` |
 | "is this still the right mission?" / "anything structural?" / monthly | review (monthly) | `../loopany-review/SKILL.md` |

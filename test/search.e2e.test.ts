@@ -45,10 +45,12 @@ describe('search + reindex CLI', () => {
   test('reindex --no-embed populates the index and is idempotent', async () => {
     const ws = await setupWorkspaceWithNotes();
 
+    // 2 notes + 1 auto-managed journal entry created by the store on
+    // each non-journal create.
     const first = await runCli(ws, 'reindex', '--no-embed');
     expect(first.code).toBe(0);
     const firstResult = JSON.parse(first.stdout);
-    expect(firstResult.indexed).toBe(2);
+    expect(firstResult.indexed).toBe(3);
     expect(firstResult.skipped).toBe(0);
     expect(firstResult.embedder).toBe('noop');
     expect(existsSync(join(ws, 'search.db'))).toBe(true);
@@ -56,23 +58,25 @@ describe('search + reindex CLI', () => {
     const second = await runCli(ws, 'reindex', '--no-embed');
     const secondResult = JSON.parse(second.stdout);
     expect(secondResult.indexed).toBe(0);
-    expect(secondResult.skipped).toBe(2);
+    expect(secondResult.skipped).toBe(3);
   });
 
   test('search returns structured results', async () => {
     const ws = await setupWorkspaceWithNotes();
     await runCli(ws, 'reindex', '--no-embed');
 
-    const r = await runCli(ws, 'search', 'billing');
+    // Filter to the note kind — the journal also contains "billing" via
+    // its auto-appended wiki-link `[[billing-refactor]] — refactor billing loop`.
+    const r = await runCli(ws, 'search', 'billing', '--kind', 'note');
     expect(r.code).toBe(0);
     const results = JSON.parse(r.stdout);
     expect(results).toHaveLength(1);
     expect(results[0]).toMatchObject({
-      artifactId: 'nte-billing-refactor',
+      artifactId: 'billing-refactor',
       kind: 'note',
     });
     expect(typeof results[0].score).toBe('number');
-    expect(results[0].path).toContain('nte-billing-refactor.md');
+    expect(results[0].path).toContain('billing-refactor.md');
   });
 
   test('search with --kind filter', async () => {
@@ -103,14 +107,14 @@ describe('search + reindex CLI', () => {
 
     // Remove one artifact from disk
     const { rmSync } = await import('fs');
-    rmSync(join(ws, 'artifacts', 'notes', 'nte-billing-refactor.md'));
+    rmSync(join(ws, 'artifacts', 'notes', 'billing-refactor.md'));
 
     const r = await runCli(ws, 'reindex', '--no-embed');
     const result = JSON.parse(r.stdout);
     expect(result.removed).toBe(1);
     expect(result.indexed).toBe(0);
 
-    const search = await runCli(ws, 'search', 'billing');
+    const search = await runCli(ws, 'search', 'billing', '--kind', 'note');
     expect(JSON.parse(search.stdout)).toEqual([]);
   });
 
@@ -127,7 +131,8 @@ describe('search + reindex CLI', () => {
     await runCli(ws, 'reindex', '--no-embed');
     const r = await runCli(ws, 'reindex', '--no-embed', '--force');
     const result = JSON.parse(r.stdout);
-    expect(result.indexed).toBe(2);
+    // 2 notes + 1 auto-managed journal entry.
+    expect(result.indexed).toBe(3);
     expect(result.skipped).toBe(0);
   });
 });

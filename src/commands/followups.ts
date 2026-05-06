@@ -1,5 +1,5 @@
 // `loopany followups [--due today|overdue|next-7d] [--include-done true]`
-// Reads `check_at` frontmatter on every artifact and returns due ones.
+// Reads `checkAt` frontmatter on every artifact and returns due ones.
 // By default, hides artifacts whose status is terminal (no outgoing
 // transitions in the kind's status machine — e.g. done, cancelled, failed
 // for tasks). `--include-done true` disables the filter.
@@ -32,7 +32,7 @@ export async function runFollowups(engine: Engine, args: string[]): Promise<Arti
 
   const todayStr = today.toISOString().slice(0, 10);
   return all.filter((m) => {
-    const checkAt = m.frontmatter.check_at;
+    const checkAt = m.frontmatter.checkAt;
     return typeof checkAt === 'string' && checkAt.slice(0, 10) < todayStr;
   });
 }

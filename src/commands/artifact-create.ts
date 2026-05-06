@@ -19,6 +19,13 @@ export async function runArtifactCreate(engine: Engine, args: string[]): Promise
   const kind = flags.kind;
   if (!kind) throw new Error('Missing required flag: --kind');
 
+  if (kind === 'journal') {
+    throw new Error(
+      'Cannot create journal artifacts directly — they are auto-managed by the store. ' +
+        'Create any other kind, and today\'s journal entry will gain a wiki-link to it.',
+    );
+  }
+
   const def = engine.registry.get(kind);
   if (!def) throw new Error(`Unknown kind: ${kind}`);
 

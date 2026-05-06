@@ -1,10 +1,6 @@
 ---
 kind: brief
-idPrefix: brf-
-bodyMode: append
-storage: date-bucketed
-idStrategy: timestamp
-indexedFields: [for_date]
+indexedFields: [forDate]
 ---
 
 # brief
@@ -22,7 +18,7 @@ references (`mentions`) the artifacts it cites so the user can drill in.
 ```yaml
 title:    { type: string, required: true }       # e.g. "Morning briefing"
 domain:   { type: string, required: false }
-for_date: { type: date, required: false }        # the day/period this covers
+forDate:  { type: date, required: false }        # the day/period this covers
 mentions: { type: 'string[]', required: false }  # artifacts cited in the body
 ```
 
@@ -41,7 +37,7 @@ mentions: { type: 'string[]', required: false }  # artifacts cited in the body
 
 ## UI
 
-cardFields: [title, for_date]
+cardFields: [title, forDate]
 
 ---
 

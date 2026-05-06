@@ -1,10 +1,6 @@
 ---
 kind: learning
-idPrefix: lrn-
-bodyMode: append
-storage: date-bucketed
-idStrategy: timestamp
-indexedFields: [domain, status, check_at]
+indexedFields: [domain, status, checkAt]
 ---
 
 # learning
@@ -32,7 +28,7 @@ domain:     { type: string, required: false }
 status:     { type: enum, values: [active, superseded, archived], default: active }
 evidence:   { type: 'string[]', required: false }
 supersedes: { type: string, required: false }
-check_at:   { type: date, required: false }
+checkAt:    { type: date, required: false }
 mentions:   { type: 'string[]', required: false }
 ```
 
@@ -66,7 +62,7 @@ skill drives this. Minimum discipline:
 - **Title** = the belief itself, as a declarative sentence.
 - **`evidence`** cites ≥ 2 artifact IDs.
 - **Body** covers `## Observation`, `## Evidence`, `## Scope`, `## Check-at`.
-- **`check_at`** 1-3 months out with a concrete revalidation question.
+- **`checkAt`** 1-3 months out with a concrete revalidation question.
 
 When understanding changes, create new learning with `supersedes`;
 don't rewrite the old one.
@@ -78,4 +74,4 @@ when it implies a concrete skill edit.
 
 - ❌ One task → one learning — wait for ≥ 2 data points.
 - ❌ Learning as diary entry — "shipped #450" is an outcome, not a belief.
-- ❌ No `check_at` — beliefs rot silently.
+- ❌ No `checkAt` — beliefs rot silently.

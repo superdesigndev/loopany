@@ -1,9 +1,14 @@
 // Parses loopany/kinds/*.md at startup and exposes:
-//   - top-level KindDefinition fields (idPrefix, storage, idStrategy, ...)
+//   - top-level KindDefinition fields (kind, dirName, slugLayout, ...)
 //   - frontmatter validators (zod schemas built from the kind's YAML spec)
 //   - status machines (initial + transitions map)
 //
 // Built dynamically — `kind` is an open registry, not a TypeScript enum.
+//
+// v0.2: ids are globally unique slugs (no kind prefix), files live flat
+// under `artifacts/<dirName>/<id>.md`. `slugLayout: 'year'` adds an extra
+// `<YYYY>/` subdirectory keyed off the id's first 4 chars (used by
+// `journal` whose ids are `YYYY-MM-DD`).
 
 import { z } from 'zod';
 import { existsSync } from 'fs';
@@ -12,8 +17,7 @@ import { readdir, readFile } from 'fs/promises';
 import { join } from 'path';
 import { parseMarkdown } from './markdown.ts';
 
-export type Storage = 'date-bucketed' | 'flat';
-export type IdStrategy = 'timestamp' | 'slug';
+export type SlugLayout = 'flat' | 'year';
 
 export interface StatusMachine {
   initial: string;
@@ -22,11 +26,10 @@ export interface StatusMachine {
 
 export interface KindDefinition {
   kind: string;
-  idPrefix: string;
-  bodyMode: 'append';
-  storage: Storage;
-  idStrategy: IdStrategy;
+  /** Storage directory name under `artifacts/`. Defaults to `<kind>s`. */
   dirName: string;
+  /** Per-id directory layout under `artifacts/<dirName>/`. Defaults to `flat`. */
+  slugLayout: SlugLayout;
   indexedFields: string[];
   description: string;
   frontmatterSchema: z.ZodTypeAny;
@@ -53,10 +56,14 @@ export function parseKindDefinition(raw: string): KindDefinition {
   const { frontmatter: top, body } = parseMarkdown(raw);
 
   const kind = expectString(top.kind, 'kind');
-  const idPrefix = expectString(top.idPrefix, 'idPrefix');
-  const storage = expectString(top.storage, 'storage') as Storage;
-  const idStrategy = expectString(top.idStrategy, 'idStrategy') as IdStrategy;
   const dirName = (top.dirName as string | undefined) ?? `${kind}s`;
+  const rawLayout = top.slugLayout as string | undefined;
+  if (rawLayout !== undefined && rawLayout !== 'flat' && rawLayout !== 'year') {
+    throw new Error(
+      `Kind ${kind}: slugLayout must be 'flat' or 'year' (got '${rawLayout}')`,
+    );
+  }
+  const slugLayout: SlugLayout = (rawLayout as SlugLayout | undefined) ?? 'flat';
   const indexedFields = (top.indexedFields as string[] | undefined) ?? [];
 
   const sections = splitH2Sections(body);
@@ -68,19 +75,14 @@ export function parseKindDefinition(raw: string): KindDefinition {
   const frontmatterSchema = buildZodSchema(fieldSpecs);
 
   const smYaml = extractYamlBlock(sections['Status machine']);
-  const statusMachine = smYaml
-    ? (smYaml as StatusMachine)
-    : undefined;
+  const statusMachine = isStatusMachine(smYaml) ? smYaml : undefined;
 
   const description = sections['__intro'] ?? '';
 
   return {
     kind,
-    idPrefix,
-    bodyMode: 'append',
-    storage,
-    idStrategy,
     dirName,
+    slugLayout,
     indexedFields,
     description,
     frontmatterSchema,
@@ -94,6 +96,16 @@ function expectString(v: unknown, name: string): string {
     throw new Error(`Kind definition missing required field: ${name}`);
   }
   return v;
+}
+
+function isStatusMachine(v: unknown): v is StatusMachine {
+  if (!v || typeof v !== 'object') return false;
+  const obj = v as Record<string, unknown>;
+  return (
+    typeof obj.initial === 'string' &&
+    obj.transitions !== null &&
+    typeof obj.transitions === 'object'
+  );
 }
 
 function splitH2Sections(body: string): Record<string, string> {
@@ -128,7 +140,7 @@ function extractYamlBlock(section: string | undefined): unknown {
 
 export class KindRegistry {
   private byKind = new Map<string, KindDefinition>();
-  private byPrefix = new Map<string, KindDefinition>();
+  private byDirName = new Map<string, KindDefinition>();
   private _issues: LoadIssue[] = [];
 
   static async load(
@@ -160,15 +172,17 @@ export class KindRegistry {
           });
           continue;
         }
-        if (this.byPrefix.has(def.idPrefix)) {
+        if (this.byDirName.has(def.dirName)) {
           this._issues.push({
             file: path,
-            error: `Duplicate idPrefix: ${def.idPrefix} (already registered from another file)`,
+            error:
+              `Duplicate dirName: ${def.dirName} ` +
+              `(kind=${def.kind} collides with kind=${this.byDirName.get(def.dirName)!.kind})`,
           });
           continue;
         }
         this.byKind.set(def.kind, def);
-        this.byPrefix.set(def.idPrefix, def);
+        this.byDirName.set(def.dirName, def);
       } catch (err) {
         this._issues.push({
           file: path,
@@ -182,8 +196,10 @@ export class KindRegistry {
     return this.byKind.get(kind);
   }
 
-  getByPrefix(prefix: string): KindDefinition | undefined {
-    return this.byPrefix.get(prefix);
+  /** Reverse lookup by directory name. Used by the store when walking
+   *  `artifacts/*` to attribute files back to a kind. */
+  getByDirName(dirName: string): KindDefinition | undefined {
+    return this.byDirName.get(dirName);
   }
 
   list(): KindDefinition[] {
@@ -195,9 +211,7 @@ export class KindRegistry {
   }
 }
 
-function buildZodSchema(
-  spec: Record<string, FieldSpec>,
-): z.ZodTypeAny {
+function buildZodSchema(spec: Record<string, FieldSpec>): z.ZodTypeAny {
   const shape: Record<string, z.ZodTypeAny> = {};
   for (const [name, field] of Object.entries(spec)) {
     let s: z.ZodTypeAny;

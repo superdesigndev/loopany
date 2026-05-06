@@ -83,10 +83,10 @@ export class ArtifactIndex {
     // Promote implicit edges — both from frontmatter `mentions: [...]` and
     // from body `[[id]]` wiki links. On-disk is unchanged; these edges are
     // reconstituted every build, so updating frontmatter or body is enough
-    // to add/remove a mention without touching references.jsonl.
-    const validPrefixes = registry
-      ? new Set(registry.list().map((k) => k.idPrefix))
-      : null;
+    // to add/remove a mention without touching references.jsonl. registry
+    // is unused in v0.2 (slugs no longer have prefixes); kept as a param
+    // for callers' convenience.
+    void registry;
 
     for (const a of all) {
       const ts = mtimeIso(a.path);
@@ -102,13 +102,11 @@ export class ArtifactIndex {
         }
       }
 
-      // 2. Body [[link]] references (requires registry for prefix whitelist)
-      if (validPrefixes) {
-        for (const target of extractLinks(a.body, validPrefixes)) {
-          pushImplicit(forward, reverse, {
-            ts, from: a.id, to: target, relation: 'mentions', actor: 'body',
-          });
-        }
+      // 2. Body [[link]] references — any slug-shaped target is a candidate.
+      for (const target of extractLinks(a.body)) {
+        pushImplicit(forward, reverse, {
+          ts, from: a.id, to: target, relation: 'mentions', actor: 'body',
+        });
       }
     }
 
@@ -159,12 +157,12 @@ export class ArtifactIndex {
     return [...this.metasById.values()];
   }
 
-  /** Return artifacts whose check_at is on or before `today`. */
+  /** Return artifacts whose `checkAt` is on or before `today`. */
   followups(today: Date): ArtifactMeta[] {
     const cutoff = today.toISOString().slice(0, 10);
     const out: ArtifactMeta[] = [];
     for (const meta of this.metasById.values()) {
-      const checkAt = meta.frontmatter.check_at;
+      const checkAt = meta.frontmatter.checkAt;
       if (typeof checkAt !== 'string') continue;
       if (checkAt.slice(0, 10) <= cutoff) out.push(meta);
     }

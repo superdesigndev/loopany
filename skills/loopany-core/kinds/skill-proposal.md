@@ -1,10 +1,6 @@
 ---
 kind: skill-proposal
-idPrefix: spr-
-bodyMode: append
-storage: date-bucketed
-idStrategy: timestamp
-indexedFields: [status, target_skill, domain]
+indexedFields: [status, targetSkill, domain]
 ---
 
 # skill-proposal
@@ -23,21 +19,21 @@ Three change types, all routed through the same kind:
 
 Accepted proposals apply the change and commit via git. Rejected
 proposals are archived with their reason, so future `reflect` runs don't
-re-suggest the same rule. `check_at` on an accepted proposal schedules a
+re-suggest the same rule. `checkAt` on an accepted proposal schedules a
 future review: did this change actually help? The `## Outcome` appended
 then closes the loop on the proposal itself.
 
 ## Frontmatter
 
 ```yaml
-title:        { type: string, required: true }
-target_skill: { type: string, required: true }   # SKILL.md path. modify/remove → existing file. add → to-be-created (e.g. skills/<new-name>/SKILL.md)
-status:       { type: enum, values: [pending, accepted, rejected], default: pending }
-domain:       { type: string, required: false }
-change_type:  { type: enum, values: [add, modify, remove], default: modify }
-evidence:     { type: 'string[]', required: false }
-check_at:     { type: date, required: false }
-mentions:     { type: 'string[]', required: false }
+title:       { type: string, required: true }
+targetSkill: { type: string, required: true }   # SKILL.md path. modify/remove → existing file. add → to-be-created (e.g. skills/<new-name>/SKILL.md)
+status:      { type: enum, values: [pending, accepted, rejected], default: pending }
+domain:      { type: string, required: false }
+changeType:  { type: enum, values: [add, modify, remove], default: modify }
+evidence:    { type: 'string[]', required: false }
+checkAt:     { type: date, required: false }
+mentions:    { type: 'string[]', required: false }
 ```
 
 ## Status machine
@@ -52,7 +48,7 @@ transitions:
 
 On `status: accepted` → body must contain `## Outcome`
 On `status: rejected` → body must contain `## Outcome`
-On `change_type: add` → body must contain both:
+On `changeType: add` → body must contain both:
 - `## Skill draft` — full SKILL.md to create (frontmatter + body).
   Frontmatter must include `name` and a "pushy" `description` (states
   what the skill does AND when to trigger, biased against undertrigger).
@@ -62,7 +58,7 @@ On `change_type: add` → body must contain both:
 
 ## UI
 
-cardFields: [title, status, target_skill]
+cardFields: [title, status, targetSkill]
 
 ---
 
@@ -77,7 +73,7 @@ Only when a learning implies a **concrete skill edit**. The
 
 See `loopany-reflect` skill for full writing rules, required sections
 (`## Motivation`, `## Proposed change`, `## Expected effect`, `## Check-at`),
-and the special `change_type: add` format (`## Skill draft` + `## Resolver entry`).
+and the special `changeType: add` format (`## Skill draft` + `## Resolver entry`).
 
 ### Anti-patterns
 
@@ -85,3 +81,4 @@ and the special `change_type: add` format (`## Skill draft` + `## Resolver entry
 - ❌ Re-proposing a rejected change — check rejected list first.
 - ❌ Editing skill files directly — always go through proposals.
 - ❌ `add` without a `## Resolver entry` — skill becomes dead code.
+- ❌ Using snake_case field names (e.g. `target_skill`, `change_type`, `check_at`) — frontmatter is camelCase since v0.2.

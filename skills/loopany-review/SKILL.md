@@ -11,7 +11,7 @@ One skill, three frequencies. Each adds scope; all share the same closure gate.
 
 | Freq | Scope | Trigger | Read |
 |------|-------|---------|------|
-| **daily** | `check_at = today` | "what's due today", session start | `references/daily.md` |
+| **daily** | `checkAt = today` | "what's due today", session start | `references/daily.md` |
 | **weekly** | overdue + parking lots + doctor | "what's slipping", "weekly check" | `references/weekly.md` |
 | **monthly** | mission alignment + structural drift | "right mission?", "anything structural?" | `references/monthly.md` |
 
@@ -27,11 +27,11 @@ Frequency-specific — see the reference file.
 
 Read each: `loopany artifact get <id>`
 
-- **A. Silently resolvable** — extend `check_at` with a one-line reason.
+- **A. Silently resolvable** — extend `checkAt` with a one-line reason.
 - **B. Needs the user** — requires judgment or data only user has.
-- **C. Defer** — push `check_at` forward **with a reason**.
+- **C. Defer** — push `checkAt` forward **with a reason**.
 
-For learnings: `loopany trace <lrn-id> --direction backward`
+For learnings: `loopany trace <learning-slug> --direction backward`
 
 ### 3. Surface
 
@@ -39,9 +39,9 @@ Only bucket **B**. One line per item:
 
 ```
 3 things need you today:
-1. [tsk-…] 2-week recheck — did $/session settle?
-2. [lrn-…] "short deals close 2.5x faster" — still true?
-3. [sig-…] recurring churn signal, 3rd time. Upgrade?
+1. [<task-slug>] 2-week recheck — did $/session settle?
+2. [<learning-slug>] "short deals close 2.5x faster" — still true?
+3. [<signal-slug>] recurring churn signal, 3rd time. Upgrade?
 ```
 
 Empty → say so and stop.
@@ -58,8 +58,8 @@ Route to kind playbooks in `loopany-core`:
 
 Every surfaced item must end the session in one of:
 - **Resolved** — state transition written.
-- **Deferred** — `check_at` pushed with reason. "Not yet" isn't a reason.
-- **Retired** — `check_at` removed with note.
+- **Deferred** — `checkAt` pushed with reason. "Not yet" isn't a reason.
+- **Retired** — `checkAt` removed with note.
 
 **No zombie items.** A digest without state changes is noise.
 

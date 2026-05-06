@@ -1,18 +1,13 @@
 ---
 kind: person
-idPrefix: prs-
-bodyMode: append
-storage: flat
-idStrategy: slug
 dirName: people
 indexedFields: [aliases]
 ---
 
 # person
 
-A human entity. Lives outside the time-bucketed artifact pool, in
-`loopany/artifacts/people/`. ID is `prs-` + slug (`--slug alice-chen`
-→ `prs-alice-chen`, never `--slug prs-alice-chen`).
+A human entity. Lives in `artifacts/people/<id>.md`. ID is the slug
+itself (`--slug alice-chen` → `alice-chen`).
 
 Frontmatter is the "current understanding" — name and aliases can change
 over time. Body is append-only timeline of mentions and updates.

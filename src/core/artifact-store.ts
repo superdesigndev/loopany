@@ -1,27 +1,36 @@
 // Read / write / list / append for markdown artifacts under loopany/artifacts/.
 // Pure file operations; no DB.
 //
-// Time-bucketed:  artifacts/{YYYY-MM}/{idPrefix}{ts}.md       (timestamp ID)
-// Flat:           artifacts/{dirName}/{idPrefix}{slug}.md     (slug ID)
+// v0.2 layout:  artifacts/<dirName>/<id>.md         (slugLayout: 'flat')
+//               artifacts/<dirName>/<YYYY>/<id>.md  (slugLayout: 'year')
+//
+// IDs are globally unique slugs (no kind prefix). `get(id)` walks the
+// registered kind directories — cheap because registries are ~10 kinds.
 
 import { existsSync } from 'fs';
-import { mkdir, readFile, readdir, writeFile } from 'fs/promises';
+import { mkdir, readFile, readdir, rm, writeFile } from 'fs/promises';
 import { join } from 'path';
 import {
   parseMarkdown,
   serializeMarkdown,
   appendSection as appendBodySection,
+  appendListItem,
 } from './markdown.ts';
 import type { FieldSpec, KindDefinition, KindRegistry } from './kind-registry.ts';
+import { generateFallbackSlug, requireValidSlug } from './slug.ts';
 
-const BUILTIN_FIELDS = new Set(['domain']);
+// Built-in fields the store accepts on every kind (no per-kind schema
+// required). `domain` is a cross-kind tag; `createdAt` / `updatedAt` are
+// auto-stamped on writes; `_backfilled` marks artifacts seeded by the
+// migration script (routes them to the journal Backfilled section).
+const BUILTIN_FIELDS = new Set([
+  'domain',
+  'createdAt',
+  'updatedAt',
+  '_backfilled',
+]);
 
-// Slug = kebab-case identifier. Lowercase a–z, digits, single hyphens between
-// segments. No leading/trailing hyphen, no double hyphens. This is what every
-// existing kind uses (alice-chen, fundraising-2027, self) and it locks out
-// path-separator chars, leading dots, spaces, and other filename hazards.
-const SLUG_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/;
-const MAX_SLUG_LEN = 80;
+const JOURNAL_KIND = 'journal';
 
 export interface Artifact {
   id: string;
@@ -32,9 +41,9 @@ export interface Artifact {
 }
 
 export interface CreateOpts {
-  /** Required when idStrategy === 'slug'. */
+  /** Optional slug. Omit to auto-mint `YYYYMMDD-HHMMSS-<3hex>`. */
   slug?: string;
-  /** Test hook: pin the timestamp portion (without prefix) to test collisions. */
+  /** Test hook: pin the auto-mint timestamp for deterministic ids. */
   now?: string;
 }
 
@@ -53,15 +62,17 @@ export class ArtifactStore {
     const def = this.registry.get(kind);
     if (!def) throw new Error(`Unknown kind: ${kind}`);
 
-    // Auto-fill status from the kind's status machine initial when caller omitted it.
-    // The frontmatter schema's `default` is for arbitrary field defaults; the status
-    // machine's `initial` is the canonical "newly-created" state — apply it here so
-    // callers don't have to repeat `--status active` on every create.
+    // Auto-fill status from the kind's status machine initial when omitted.
     if (def.statusMachine && frontmatter.status === undefined) {
       frontmatter = { ...frontmatter, status: def.statusMachine.initial };
     }
 
-    const validated = def.frontmatterSchema.parse(frontmatter) as Record<string, unknown>;
+    const now = opts.now ?? new Date().toISOString();
+    const fmStamped = withWriteTimestamps(frontmatter, { isCreate: true, now });
+    const validated = def.frontmatterSchema.parse(fmStamped) as Record<
+      string,
+      unknown
+    >;
 
     const id = await this.allocateId(def, opts);
     const path = this.pathFor(def, id);
@@ -70,39 +81,65 @@ export class ArtifactStore {
     const content = serializeMarkdown({ frontmatter: validated, body });
     await writeFile(path, content, 'utf-8');
 
-    return { id, kind, path, frontmatter: validated, body };
+    const artifact: Artifact = { id, kind, path, frontmatter: validated, body };
+
+    // Auto-link into today's journal. Best-effort: failures are logged but
+    // never throw, so artifact creation stays atomic from the caller's view.
+    if (kind !== JOURNAL_KIND && this.registry.get(JOURNAL_KIND)) {
+      try {
+        await this.appendToTodayJournal(artifact);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.warn(
+          `loopany: failed to append ${id} to today's journal — ${msg}`,
+        );
+      }
+    }
+
+    return artifact;
   }
 
   async get(id: string): Promise<Artifact | null> {
-    const def = this.kindForId(id);
-    if (!def) return null;
-    const path = this.pathFor(def, id);
-    if (!existsSync(path)) return null;
-    const raw = await readFile(path, 'utf-8');
-    const { frontmatter, body } = parseMarkdown(raw);
-    return { id, kind: def.kind, path, frontmatter, body };
+    // Slugs are globally unique by construction, so probing every kind dir
+    // for `<id>.md` is correct and cheap (~10 stat calls).
+    for (const def of this.registry.list()) {
+      const path = this.pathFor(def, id);
+      if (existsSync(path)) {
+        const raw = await readFile(path, 'utf-8');
+        const { frontmatter, body } = parseMarkdown(raw);
+        return { id, kind: def.kind, path, frontmatter, body };
+      }
+    }
+    return null;
   }
 
-  async appendSection(id: string, sectionName: string, content: string): Promise<void> {
+  async appendSection(
+    id: string,
+    sectionName: string,
+    content: string,
+  ): Promise<void> {
     const a = await this.requireArtifact(id);
     const newBody = appendBodySection(a.body, sectionName, content);
+    const fm = withWriteTimestamps(a.frontmatter, { isCreate: false });
     await writeFile(
       a.path,
-      serializeMarkdown({ frontmatter: a.frontmatter, body: newBody }),
+      serializeMarkdown({ frontmatter: fm, body: newBody }),
       'utf-8',
     );
   }
 
   async setField(id: string, field: string, rawValue: string): Promise<void> {
     if (field === 'status') {
-      throw new Error('Use setStatus for the status field (it enforces the state machine)');
+      throw new Error(
+        'Use setStatus for the status field (it enforces the state machine)',
+      );
     }
     const a = await this.requireArtifact(id);
     const def = this.registry.get(a.kind)!;
 
     let value: unknown;
     if (BUILTIN_FIELDS.has(field)) {
-      value = rawValue; // built-in fields are always strings
+      value = rawValue;
     } else {
       const spec = def.fieldSpecs[field];
       if (!spec) {
@@ -111,7 +148,10 @@ export class ArtifactStore {
       value = coerceField(rawValue, spec);
     }
 
-    const updatedFm = { ...a.frontmatter, [field]: value };
+    const updatedFm = withWriteTimestamps(
+      { ...a.frontmatter, [field]: value },
+      { isCreate: false },
+    );
     def.frontmatterSchema.parse(updatedFm);
     await writeFile(
       a.path,
@@ -121,8 +161,6 @@ export class ArtifactStore {
   }
 
   async setStatus(id: string, newStatus: string, _reason?: string): Promise<void> {
-    // Note: the `reason` arg is accepted for CLI parity but not written to the
-    // body — reasons live in audit.jsonl. The body stays clean.
     const a = await this.requireArtifact(id);
     const def = this.registry.get(a.kind)!;
     if (!def.statusMachine) {
@@ -138,7 +176,10 @@ export class ArtifactStore {
       );
     }
 
-    const updatedFm = { ...a.frontmatter, status: newStatus };
+    const updatedFm = withWriteTimestamps(
+      { ...a.frontmatter, status: newStatus },
+      { isCreate: false },
+    );
     await writeFile(
       a.path,
       serializeMarkdown({ frontmatter: updatedFm, body: a.body }),
@@ -149,18 +190,18 @@ export class ArtifactStore {
   async listAll(): Promise<Artifact[]> {
     const out: Artifact[] = [];
     for (const def of this.registry.list()) {
-      const dir = this.kindDirRoot(def);
+      const dir = join(this.root, 'artifacts', def.dirName);
       if (!existsSync(dir)) continue;
 
-      if (def.storage === 'flat') {
-        out.push(...(await this.readDirArtifacts(def, dir)));
-      } else {
-        const months = await readdir(dir, { withFileTypes: true });
-        for (const month of months) {
-          if (!month.isDirectory()) continue;
-          const monthDir = join(dir, month.name);
-          out.push(...(await this.readDirArtifacts(def, monthDir)));
+      if (def.slugLayout === 'year') {
+        const years = await readdir(dir, { withFileTypes: true });
+        for (const yr of years) {
+          if (!yr.isDirectory()) continue;
+          if (!/^\d{4}$/.test(yr.name)) continue;
+          out.push(...(await this.readDirArtifacts(def, join(dir, yr.name))));
         }
+      } else {
+        out.push(...(await this.readDirArtifacts(def, dir)));
       }
     }
     return out;
@@ -168,13 +209,64 @@ export class ArtifactStore {
 
   // --- internals ---
 
-  private async readDirArtifacts(def: KindDefinition, dir: string): Promise<Artifact[]> {
+  private async appendToTodayJournal(artifact: Artifact): Promise<void> {
+    const journalDef = this.registry.get(JOURNAL_KIND);
+    if (!journalDef) return;
+
+    const isBackfilled = artifact.frontmatter._backfilled === true;
+    const sectionName = isBackfilled ? 'Backfilled' : 'Activity';
+    const createdAt = String(artifact.frontmatter.createdAt ?? '');
+    const date = createdAt.slice(0, 10) || isoDate(new Date());
+    const time = isoTime(createdAt);
+    const title =
+      typeof artifact.frontmatter.title === 'string'
+        ? artifact.frontmatter.title
+        : '';
+    const titleSuffix = title ? ` — ${title}` : '';
+    const linePrefix = isBackfilled || !time ? '' : `${time} `;
+    const line = `${linePrefix}[[${artifact.id}]]${titleSuffix}`;
+
+    const journalPath = this.pathFor(journalDef, date);
+
+    await mkdir(join(journalPath, '..'), { recursive: true });
+
+    if (!existsSync(journalPath)) {
+      const skeleton = serializeMarkdown({
+        frontmatter: withWriteTimestamps(
+          { date },
+          { isCreate: true, now: `${date}T00:00:00.000Z` },
+        ),
+        body: `# ${date}\n\n## ${sectionName}\n\n- ${line}\n`,
+      });
+      // Concurrent creates: `wx` errors on EEXIST; fall through to append.
+      try {
+        await writeFile(journalPath, skeleton, { flag: 'wx' });
+        return;
+      } catch (e) {
+        if ((e as NodeJS.ErrnoException).code !== 'EEXIST') throw e;
+      }
+    }
+
+    const raw = await readFile(journalPath, 'utf-8');
+    const { frontmatter, body } = parseMarkdown(raw);
+    const newBody = appendListItem(body, sectionName, line);
+    const fm = withWriteTimestamps(frontmatter, { isCreate: false });
+    await writeFile(
+      journalPath,
+      serializeMarkdown({ frontmatter: fm, body: newBody }),
+      'utf-8',
+    );
+  }
+
+  private async readDirArtifacts(
+    def: KindDefinition,
+    dir: string,
+  ): Promise<Artifact[]> {
     const entries = await readdir(dir);
     const out: Artifact[] = [];
     for (const entry of entries) {
       if (!entry.endsWith('.md')) continue;
       const id = entry.replace(/\.md$/, '');
-      if (!id.startsWith(def.idPrefix)) continue;
       const path = join(dir, entry);
       const raw = await readFile(path, 'utf-8');
       const { frontmatter, body } = parseMarkdown(raw);
@@ -189,70 +281,74 @@ export class ArtifactStore {
     return a;
   }
 
-  private kindForId(id: string): KindDefinition | undefined {
-    const dashIdx = id.indexOf('-');
-    if (dashIdx < 0) return undefined;
-    return this.registry.getByPrefix(id.slice(0, dashIdx + 1));
-  }
-
-  private kindDirRoot(def: KindDefinition): string {
-    if (def.storage === 'flat') {
-      return join(this.root, 'artifacts', def.dirName);
-    }
-    return join(this.root, 'artifacts');
-  }
-
   private pathFor(def: KindDefinition, id: string): string {
-    if (def.storage === 'flat') {
-      return join(this.root, 'artifacts', def.dirName, `${id}.md`);
+    const base = join(this.root, 'artifacts', def.dirName);
+    if (def.slugLayout === 'year') {
+      const year = id.slice(0, 4);
+      return join(base, year, `${id}.md`);
     }
-    // date-bucketed: extract YYYYMMDD from `tsk-YYYYMMDD-HHMMSS[-N]`
-    const tsPart = id.slice(def.idPrefix.length);
-    const yyyymm = `${tsPart.slice(0, 4)}-${tsPart.slice(4, 6)}`;
-    return join(this.root, 'artifacts', yyyymm, `${id}.md`);
+    return join(base, `${id}.md`);
   }
 
-  private async allocateId(def: KindDefinition, opts: CreateOpts): Promise<string> {
-    if (def.idStrategy === 'slug') {
-      if (!opts.slug) throw new Error(`Kind ${def.kind}: slug required for create`);
-      if (opts.slug.startsWith(def.idPrefix)) {
-        const stripped = opts.slug.slice(def.idPrefix.length);
-        throw new Error(
-          `Slug must not include kind prefix '${def.idPrefix}'. ` +
-            `Use --slug ${stripped} (ID becomes ${def.idPrefix}${stripped}).`,
+  private async allocateId(
+    def: KindDefinition,
+    opts: CreateOpts,
+  ): Promise<string> {
+    let id: string;
+    if (opts.slug !== undefined) {
+      id = requireValidSlug(opts.slug);
+    } else {
+      // Auto-fallback: ts-based slug. Retry on collision (very rare unless
+      // pinned via opts.now).
+      const baseTs = opts.now ?? undefined;
+      for (let i = 0; i < 100; i++) {
+        const candidate = generateFallbackSlug(
+          baseTs ? new Date(baseTs) : new Date(),
         );
+        if (!(await this.idTaken(candidate))) return candidate;
       }
-      if (opts.slug.length > MAX_SLUG_LEN) {
-        throw new Error(
-          `Slug too long: ${opts.slug.length} chars (max ${MAX_SLUG_LEN}).`,
-        );
-      }
-      if (!SLUG_RE.test(opts.slug)) {
-        throw new Error(
-          `Invalid slug: ${JSON.stringify(opts.slug)}. ` +
-            `Must be kebab-case: lowercase letters, digits, single hyphens between segments ` +
-            `(e.g. 'alice-chen', 'fundraising-2027', 'self').`,
-        );
-      }
-      const id = `${def.idPrefix}${opts.slug}`;
-      const path = this.pathFor(def, id);
-      if (existsSync(path)) {
-        throw new Error(`Slug already exists: ${id}`);
-      }
-      return id;
+      throw new Error(`Could not allocate fallback slug for ${def.kind}`);
     }
 
-    // timestamp strategy
-    const ts = opts.now ?? formatTs(new Date());
-    const baseId = `${def.idPrefix}${ts}`;
-    if (!existsSync(this.pathFor(def, baseId))) return baseId;
-
-    for (let i = 2; i < 100; i++) {
-      const id = `${baseId}-${i}`;
-      if (!existsSync(this.pathFor(def, id))) return id;
+    if (await this.idTaken(id)) {
+      throw new Error(`Slug already exists: ${id}`);
     }
-    throw new Error(`Could not allocate id for ${def.kind} (>=100 collisions)`);
+    return id;
   }
+
+  /** True when any registered kind has `<id>.md` under its dir. */
+  private async idTaken(id: string): Promise<boolean> {
+    for (const def of this.registry.list()) {
+      if (existsSync(this.pathFor(def, id))) return true;
+    }
+    return false;
+  }
+}
+
+/**
+ * Stamp `createdAt` (only on create, only if missing) and `updatedAt`
+ * (every write). Preserves any explicit value the caller already set.
+ */
+function withWriteTimestamps(
+  fm: Record<string, unknown>,
+  { isCreate, now }: { isCreate: boolean; now?: string },
+): Record<string, unknown> {
+  const ts = now ?? new Date().toISOString();
+  const next: Record<string, unknown> = { ...fm };
+  if (isCreate && typeof next.createdAt !== 'string') next.createdAt = ts;
+  next.updatedAt = ts;
+  return next;
+}
+
+function isoDate(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
+
+function isoTime(iso: string): string {
+  // Accepts a full ISO datetime; returns HH:MM. Empty string if not
+  // parseable (caller falls back to the no-prefix form).
+  if (iso.length < 16) return '';
+  return iso.slice(11, 16);
 }
 
 function coerceField(raw: string, spec: FieldSpec): unknown {
@@ -270,23 +366,18 @@ function coerceField(raw: string, spec: FieldSpec): unknown {
       if (trimmed.startsWith('[')) {
         const parsed = JSON.parse(trimmed);
         if (!Array.isArray(parsed)) {
-          throw new Error(`Expected JSON array for string[] field, got ${typeof parsed}`);
+          throw new Error(
+            `Expected JSON array for string[] field, got ${typeof parsed}`,
+          );
         }
         return parsed.map(String);
       }
-      return raw.split(',').map((s) => s.trim()).filter(Boolean);
+      return raw
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
     }
     default:
       throw new Error(`Unsupported field type: ${spec.type}`);
   }
-}
-
-function formatTs(d: Date): string {
-  const yyyy = d.getUTCFullYear();
-  const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
-  const dd = String(d.getUTCDate()).padStart(2, '0');
-  const hh = String(d.getUTCHours()).padStart(2, '0');
-  const mi = String(d.getUTCMinutes()).padStart(2, '0');
-  const ss = String(d.getUTCSeconds()).padStart(2, '0');
-  return `${yyyy}${mm}${dd}-${hh}${mi}${ss}`;
 }

@@ -13,17 +13,13 @@ async function makeStack() {
     join(kindsDir, 'task.md'),
     `---
 kind: task
-idPrefix: tsk-
-bodyMode: append
-storage: date-bucketed
-idStrategy: timestamp
-indexedFields: [status, check_at]
+indexedFields: [status, checkAt]
 ---
 ## Frontmatter
 \`\`\`yaml
-title:    { type: string, required: true }
-status:   { type: enum, values: [todo, running, done] }
-check_at: { type: date, required: false }
+title:   { type: string, required: true }
+status:  { type: enum, values: [todo, running, done] }
+checkAt: { type: date, required: false }
 \`\`\`
 ## Status machine
 \`\`\`yaml
@@ -38,10 +34,6 @@ transitions:
     join(kindsDir, 'signal.md'),
     `---
 kind: signal
-idPrefix: sig-
-bodyMode: append
-storage: date-bucketed
-idStrategy: timestamp
 indexedFields: []
 ---
 ## Frontmatter
@@ -64,7 +56,7 @@ describe('ArtifactIndex.build', () => {
   test('indexes by id, kind, status', async () => {
     const { store, refs } = await makeStack();
     const t1 = await store.create('task', { title: 'a', status: 'todo' });
-    const t2 = await store.create('task', { title: 'b', status: 'running' }, '', { now: t1.id.slice(4) + '+1' });
+    const t2 = await store.create('task', { title: 'b', status: 'running' });
     const s1 = await store.create('signal', { title: 'hi' });
 
     const idx = await ArtifactIndex.build(store, refs);
@@ -83,16 +75,16 @@ describe('ArtifactIndex.build', () => {
     await refs.append({ from: s.id, to: t.id, relation: 'led-to', actor: 'cli' });
 
     const idx = await ArtifactIndex.build(store, refs);
-    expect(idx.refsOut(s.id)).toHaveLength(1);
-    expect(idx.refsIn(t.id)).toHaveLength(1);
-    expect(idx.refsOut(t.id)).toHaveLength(0);
+    expect(idx.refsOut(s.id).filter((e) => !e.implicit)).toHaveLength(1);
+    expect(idx.refsIn(t.id).filter((e) => !e.implicit)).toHaveLength(1);
+    expect(idx.refsOut(t.id).filter((e) => !e.implicit)).toHaveLength(0);
   });
 
-  test('followups returns artifacts with check_at <= today', async () => {
+  test('followups returns artifacts with checkAt <= today', async () => {
     const { store, refs } = await makeStack();
-    await store.create('task', { title: 'past', status: 'todo', check_at: '2020-01-01' });
-    await store.create('task', { title: 'future', status: 'todo', check_at: '2099-12-31' }, '', { now: '20200101-000000' });
-    await store.create('task', { title: 'no-check', status: 'todo' }, '', { now: '20200101-000001' });
+    await store.create('task', { title: 'past', status: 'todo', checkAt: '2020-01-01' });
+    await store.create('task', { title: 'future', status: 'todo', checkAt: '2099-12-31' });
+    await store.create('task', { title: 'no-check', status: 'todo' });
 
     const idx = await ArtifactIndex.build(store, refs);
     const due = idx.followups(new Date('2026-04-22'));
@@ -102,8 +94,8 @@ describe('ArtifactIndex.build', () => {
   test('byField returns artifacts matching an indexed field', async () => {
     const { store, registry, refs } = await makeStack();
     const t1 = await store.create('task', { title: 'a', status: 'todo' });
-    const t2 = await store.create('task', { title: 'b', status: 'running' }, '', { now: t1.id.slice(4) + '+1' });
-    const t3 = await store.create('task', { title: 'c', status: 'todo' }, '', { now: t1.id.slice(4) + '+2' });
+    const t2 = await store.create('task', { title: 'b', status: 'running' });
+    const t3 = await store.create('task', { title: 'c', status: 'todo' });
 
     const idx = await ArtifactIndex.build(store, refs, registry);
     const todos = idx.byField('task', 'status', 'todo').map((m) => m.id).sort();
@@ -116,23 +108,17 @@ describe('ArtifactIndex.build', () => {
     await store.create('task', { title: 'a', status: 'todo' });
 
     const idx = await ArtifactIndex.build(store, refs, registry);
-    // 'title' is not in indexedFields for task → not indexed
     expect(idx.byField('task', 'title', 'a')).toEqual([]);
     expect(idx.byField('unknown-kind', 'status', 'todo')).toEqual([]);
     expect(idx.byField('task', 'status', 'never-used-value')).toEqual([]);
   });
 
   test('byField indexes each element of array-typed fields separately', async () => {
-    // Build a stack with a person-like kind whose aliases (string[]) is indexed.
     const kindsDir = mkdtempSync(join(tmpdir(), 'loopany-idx-kinds2-'));
     writeFileSync(
       join(kindsDir, 'person.md'),
       `---
 kind: person
-idPrefix: prs-
-bodyMode: append
-storage: flat
-idStrategy: slug
 dirName: people
 indexedFields: [aliases]
 ---
