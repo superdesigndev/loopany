@@ -82,8 +82,36 @@ export function requireValidSlug(input: unknown): string {
 }
 
 /**
- * Auto-fallback slug used when `artifact create` is called without an
- * explicit `--slug`.
+ * Slugify a free-text title for use as an artifact id when the caller
+ * didn't pass `--slug`. Lowercases (Unicode-aware), collapses runs of
+ * non-letter / non-digit characters into a single `-`, trims edges,
+ * truncates to 40 codepoints (leaves headroom for an optional `-N`
+ * collision counter without busting the 60-codepoint slug cap), then
+ * re-trims so truncation can't leave a dangling `-`.
+ *
+ * Returns `null` when the input is unusable: not a string, slugifies to
+ * empty (emoji-only or pure punctuation), or every character was stripped
+ * during normalization. Callers should fall back to the timestamp
+ * generator when this returns null.
+ */
+export function slugifyTitle(input: unknown): string | null {
+  if (typeof input !== 'string' || input.length === 0) return null;
+  const normalized = input.normalize('NFC').toLowerCase();
+  const replaced = normalized
+    .replace(/[^\p{L}\p{N}_]+/gu, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  if (replaced.length === 0) return null;
+  const codepoints = [...replaced];
+  const truncated = codepoints.slice(0, 40).join('').replace(/-+$/, '');
+  if (truncated.length === 0) return null;
+  return truncated;
+}
+
+/**
+ * Timestamp-based fallback slug. Used only when `slugifyTitle` returns
+ * null (no usable title) — a readable title-derived id is always
+ * preferred so prose `[[citations]]` stay legible.
  *
  * Format: `YYYYMMDD-HHMMSS-<3hex>`
  *   - timestamp prefix is UTC (matches the v0.1 timestamp-id format so

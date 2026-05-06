@@ -82,6 +82,7 @@ EOF
 ```
 
 Key fields: title = belief itself, evidence ≥ 2 IDs, checkAt 1-3 months.
+Always `--slug` learnings — they get `[[cited]]` a lot.
 
 ### Step 4 — Write a skill-proposal (if warranted)
 

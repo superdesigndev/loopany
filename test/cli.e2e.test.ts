@@ -115,7 +115,7 @@ describe('loopany artifact create', () => {
     );
     expect(r.code).toBe(0);
     const result = JSON.parse(r.stdout);
-    expect(result.id).toMatch(/^\d{8}-\d{6}-[0-9a-f]{3}$/);
+    expect(result.id).toBe('follow-up-with-alice');
     expect(result.kind).toBe('task');
 
     const fileContent = readFileSync(result.path, 'utf-8');

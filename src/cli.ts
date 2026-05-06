@@ -345,15 +345,20 @@ SYSTEM
   migrate [<name>]                      List or describe schema migrations
   --version                             Print version
 
+SLUGS
+  Pass --slug for anything you'll cite later — it's the id used in
+  [[citations]]. Omitted: derived from --title (collisions get -2/-3),
+  or YYYYMMDD-HHMMSS-xxx if no usable title.
+
 EXAMPLES
   Field flags are per-kind. Read \`~/loopany/kinds/<kind>.md\` for the
-  full schema — slug requirement, field types, status machine. Common examples:
+  full schema — required fields, types, status machine. Common examples:
 
-    artifact create --kind mission --title "..." --status active --content-file -
+    artifact create --kind mission --slug ship-v1 --title "..." --status active --content-file -
     artifact create --kind task    --title "..." --status todo --priority medium
-    artifact create --kind signal  --title "..." --domain ads
+    artifact create --kind signal  --slug q2-cac-spike --title "..." --domain ads
     artifact create --kind person  --slug self --name "Ada Lovelace" --emails ada@acme.example
-    artifact create --kind note    --title "..." --content "..."
+    artifact create --kind note    --slug retro-2026-q2 --title "..." --content "..."
 
     refs add --from <id> --to <id> --relation mentions
     artifact status <task-slug> done --reason "shipped"

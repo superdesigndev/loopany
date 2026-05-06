@@ -17,7 +17,11 @@ import {
   appendListItem,
 } from './markdown.ts';
 import type { FieldSpec, KindDefinition, KindRegistry } from './kind-registry.ts';
-import { generateFallbackSlug, requireValidSlug } from './slug.ts';
+import {
+  generateFallbackSlug,
+  requireValidSlug,
+  slugifyTitle,
+} from './slug.ts';
 
 // Built-in fields the store accepts on every kind (no per-kind schema
 // required). `domain` is a cross-kind tag; `createdAt` / `updatedAt` are
@@ -74,7 +78,12 @@ export class ArtifactStore {
       unknown
     >;
 
-    const id = await this.allocateId(def, opts);
+    // Pull title hint AFTER validation so the auto-allocator sees the same
+    // value the file will carry. If the kind doesn't have a string title,
+    // hint is undefined and we fall through to the timestamp slug.
+    const titleHint =
+      typeof validated.title === 'string' ? validated.title : undefined;
+    const id = await this.allocateId(def, opts, titleHint);
     const path = this.pathFor(def, id);
 
     await mkdir(join(path, '..'), { recursive: true });
@@ -290,30 +299,55 @@ export class ArtifactStore {
     return join(base, `${id}.md`);
   }
 
+  /**
+   * Resolve an id for a new artifact. Preference order:
+   *   1. `opts.slug` (caller-supplied, validated, must be globally unique).
+   *   2. Slugified `titleHint` (e.g. "Reddit Claude design" → `reddit-claude-design`).
+   *      Collisions append `-2`, `-3`, … so legible ids stay legible.
+   *   3. Timestamp fallback `YYYYMMDD-HHMMSS-<3hex>`.
+   *
+   * The title path is the common-case win — it keeps `[[citations]]` in
+   * prose readable instead of turning every reference into an opaque
+   * timestamp string.
+   */
   private async allocateId(
     def: KindDefinition,
     opts: CreateOpts,
+    titleHint?: string,
   ): Promise<string> {
-    let id: string;
     if (opts.slug !== undefined) {
-      id = requireValidSlug(opts.slug);
-    } else {
-      // Auto-fallback: ts-based slug. Retry on collision (very rare unless
-      // pinned via opts.now).
-      const baseTs = opts.now ?? undefined;
-      for (let i = 0; i < 100; i++) {
-        const candidate = generateFallbackSlug(
-          baseTs ? new Date(baseTs) : new Date(),
-        );
-        if (!(await this.idTaken(candidate))) return candidate;
+      const id = requireValidSlug(opts.slug);
+      if (await this.idTaken(id)) {
+        throw new Error(`Slug already exists: ${id}`);
       }
-      throw new Error(`Could not allocate fallback slug for ${def.kind}`);
+      return id;
     }
 
-    if (await this.idTaken(id)) {
-      throw new Error(`Slug already exists: ${id}`);
+    // Step 1: try a clean title-derived slug.
+    if (titleHint !== undefined) {
+      const base = slugifyTitle(titleHint);
+      if (base !== null) {
+        if (!(await this.idTaken(base))) return base;
+        for (let i = 2; i < 100; i++) {
+          const candidate = `${base}-${i}`;
+          if (!(await this.idTaken(candidate))) return candidate;
+        }
+        // 99 collisions in a row almost certainly means a hot batch with
+        // identical titles — fall through to the timestamp form rather
+        // than picking arbitrarily.
+      }
     }
-    return id;
+
+    // Step 2: timestamp fallback. Used when titleHint is missing or
+    // slugifies to nothing (emoji-only titles, pure punctuation, etc.).
+    const baseTs = opts.now ?? undefined;
+    for (let i = 0; i < 100; i++) {
+      const candidate = generateFallbackSlug(
+        baseTs ? new Date(baseTs) : new Date(),
+      );
+      if (!(await this.idTaken(candidate))) return candidate;
+    }
+    throw new Error(`Could not allocate fallback slug for ${def.kind}`);
   }
 
   /** True when any registered kind has `<id>.md` under its dir. */

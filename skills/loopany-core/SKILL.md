@@ -49,6 +49,12 @@ guide (§ Playbook). Read the kind file before creating or modifying.
 | Nothing unresolved | nothing, or `note` if rationale matters |
 | Duplicate | append evidence; don't fork |
 
+## Pass `--slug` for anything you'll cite later
+
+The slug IS the id, and it's what shows up in `[[citations]]`. Pass one
+whenever the artifact has a natural name (`q2-cac-spike`, `alice-chen`).
+Omit only for batch ingestion — the auto-derived id is fine but ugly.
+
 ## Conventions
 
 - **Relations** (`conventions/relations.md`) — 6 canonical verbs for `refs add`.
