@@ -1,6 +1,17 @@
 # loopany
 
+<p align="center">
+  <img src="./screenshot.png" alt="loopany — self-improving companies" width="600" />
+</p>
+
 **An agent skill for long-horizon work and self-improvement.**
+
+> **Where this comes from.** loopany is a side project from
+> [crewlet.io](https://crewlet.io) — the **self-improving company**: a
+> single AI agent that runs the company autonomously, learning from every
+> action it takes. loopany distills what we learned building that agent
+> into a portable, open substrate: the persistent memory and self-iteration
+> layer, extracted from the product and reusable by any agent harness.
 
 Most agents forget. They finish a task, the context window resets, and
 the next session starts blind — same mistakes, same blind spots, no
