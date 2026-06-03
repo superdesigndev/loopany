@@ -69,6 +69,25 @@ Omit only for batch ingestion — the auto-derived id is fine but ugly.
 | Periodic reviews (daily / weekly / monthly) | `loopany-review` |
 | Auto-capture after work concludes | `loopany-capture` |
 
++## Write discipline
+
+All artifact writes must go through the loopany CLI. This preserves schema
+validation, status transitions, audit logging, reference indexing, and journal
+bookkeeping.
+
+Use these commands for writes:
+
+- `loopany artifact create`
+- `loopany artifact append`
+- `loopany artifact set`
+- `loopany artifact status`
+- `loopany refs add`
+
+Never write artifact files directly under `artifacts/`. Do not use `cat >`,
+`sed`, `awk`, editor writes, or other raw file edits for artifact creation or
+mutation. Manual frontmatter edits are especially risky; v0.2.0 frontmatter
+properties are camelCase (`createdAt`, `updatedAt`).
+
 ## Anti-patterns
 
 - ❌ Acting without reading the kind playbook.

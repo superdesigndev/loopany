@@ -60,3 +60,4 @@ If the host has no subagent primitive, capture inline but keep it tight.
 - ❌ Capture during work, not after → no Outcome yet.
 - ❌ Skip the quality gate → noise artifacts pollute reflect.
 - ❌ Inline capture in long sessions → use subagent pattern.
+- ❌ Direct file writes instead of loopany CLI.
